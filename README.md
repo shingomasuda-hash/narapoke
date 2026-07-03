@@ -83,8 +83,9 @@ npm run build      # 本番ビルド
 1. [supabase.com](https://supabase.com) でプロジェクトを作成する。
 2. プロジェクトの **Project Settings → API** から次を取得し `.env.local` に設定する。
    - `NEXT_PUBLIC_SUPABASE_URL`（Project URL）
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`（anon public key）
-   - `SUPABASE_SERVICE_ROLE_KEY`（service_role key。**秘密**。サーバー専用）
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`（publishable key `sb_publishable_...` または旧形式 anon key）
+   - `SUPABASE_SERVICE_ROLE_KEY`（secret key `sb_secret_...` または旧形式 service_role key。**秘密**。サーバー専用）
+   > SDK はキーを文字列として `apikey` ヘッダーに渡すだけなので、新旧どちらの形式でも動作します。
 3. マイグレーションと初期データを適用する。**Supabase CLI** を使う場合:
 
    ```bash
