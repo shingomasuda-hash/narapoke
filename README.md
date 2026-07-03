@@ -190,9 +190,10 @@ npm run build      # 本番ビルド
 3. **Environment Variables** に `.env.example` の各項目を設定
    （`NEXT_PUBLIC_*` 以外は Production/Preview のみに。秘密情報を公開しない）。
 4. Deploy。
-5. **Cron**: `vercel.json` に定義済み（15分ごとに `/api/cron/reminders` を実行）。
+5. **Cron**: `vercel.json` に定義済み（毎朝9時 JST に `/api/cron/reminders` を実行）。
    - Cron からのリクエストは `Authorization: Bearer <CRON_SECRET>` で認証します。
    - `CRON_SECRET` を必ず設定してください。
+   - Hobby プランでは1日1回まで（現在 UTC 0:00 = JST 9:00）。15分粒度にするには Pro が必要。
 
 ---
 
