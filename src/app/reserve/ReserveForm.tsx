@@ -1,0 +1,212 @@
+'use client';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { StepHeader } from '@/components/StepHeader';
+import { initLiff } from '@/lib/liff';
+import { createReservationAction } from '@/actions/reservation';
+import { generateIdempotencyKeyClient, jpDateLabel, nextDates } from '@/lib/client-util';
+
+interface Slot { time: string; available: boolean; remaining: number }
+
+export function ReserveForm() {
+  const router = useRouter();
+  const [step, setStep] = useState(1);
+  const [date, setDate] = useState('');
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [closed, setClosed] = useState<string | null>(null);
+  const [time, setTime] = useState('');
+  const [partySize, setPartySize] = useState(2);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [note, setNote] = useState('');
+  const [childCount, setChildCount] = useState(0);
+  const [hasStroller, setHasStroller] = useState(false);
+  const [allergy, setAllergy] = useState('');
+  const [idToken, setIdToken] = useState<string | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const idem = useMemo(() => generateIdempotencyKeyClient(), []);
+  const dates = useMemo(() => nextDates(60), []);
+
+  // LIFF: 表示名を初期値に
+  useEffect(() => {
+    initLiff().then((p) => {
+      if (p.displayName && !name) setName(p.displayName);
+      if (p.idToken) setIdToken(p.idToken);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadSlots(d: string, party: number) {
+    setLoadingSlots(true);
+    setClosed(null);
+    try {
+      const res = await fetch(`/api/availability?date=${d}&partySize=${party}`);
+      const data = await res.json();
+      if (data.closed) { setClosed(data.reason === 'THURSDAY' ? '木曜定休日' : '休業日'); setSlots([]); }
+      else setSlots(data.slots ?? []);
+    } catch {
+      setError('空き状況の取得に失敗しました。通信環境をご確認ください。');
+    } finally {
+      setLoadingSlots(false);
+    }
+  }
+
+  function pickDate(d: string) { setDate(d); setTime(''); loadSlots(d, partySize); setStep(2); }
+  function pickTime(t: string) { setTime(t); setStep(3); }
+  function pickParty(n: number) { setPartySize(n); loadSlots(date, n); setStep(4); }
+
+  async function submit() {
+    setError('');
+    if (!name.trim()) return setError('お名前を入力してください。');
+    if (!phone.trim()) return setError('電話番号を入力してください。');
+    setSubmitting(true);
+    const result = await createReservationAction({
+      serviceDate: date, startTime: time, partySize,
+      customerName: name.trim(), phone: phone.trim(), email, note,
+      childCount, hasStroller, allergy, lineIdToken: idToken, idempotencyKey: idem,
+    });
+    setSubmitting(false);
+    if (result.ok && result.code) {
+      router.push(`/reserve/complete?code=${encodeURIComponent(result.code)}&token=${encodeURIComponent(result.token ?? '')}`);
+    } else {
+      setError(result.message ?? '予約に失敗しました。');
+      if (result.errorCode === 'FULL') { setStep(2); loadSlots(date, partySize); }
+    }
+  }
+
+  return (
+    <main>
+      <Link href="/" className="mb-3 inline-block text-sm text-shu underline">← トップに戻る</Link>
+
+      {step === 1 && (
+        <>
+          <StepHeader step={1} total={6} title="ご来店日を選ぶ" />
+          <div className="grid grid-cols-3 gap-2">
+            {dates.map((d) => (
+              <button key={d.value} onClick={() => pickDate(d.value)} disabled={d.thursday}
+                className={`chip flex-col !h-auto py-3 ${d.thursday ? 'opacity-30' : ''}`}>
+                <span className="text-xs">{d.month}月</span>
+                <span className="text-lg">{d.day}</span>
+                <span className="text-xs">{d.weekday}{d.thursday ? '・休' : ''}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <StepHeader step={2} total={6} title="時間を選ぶ" />
+          <p className="mb-3 text-sm text-sumi-soft">{jpDateLabel(date)}</p>
+          {loadingSlots && <p className="text-sumi-soft">空き状況を確認中…</p>}
+          {closed && <p className="font-semibold text-shu">{closed}のためご予約いただけません。</p>}
+          <div className="grid grid-cols-3 gap-2">
+            {slots.map((s) => (
+              <button key={s.time} onClick={() => s.available && pickTime(s.time)} disabled={!s.available}
+                className={`chip ${!s.available ? 'opacity-30 line-through' : ''} ${time === s.time ? 'chip-on' : ''}`}>
+                {s.time}
+              </button>
+            ))}
+          </div>
+          {!loadingSlots && !closed && slots.length === 0 && (
+            <p className="text-sumi-soft">この日は予約可能な時間がありません。</p>
+          )}
+          <button onClick={() => setStep(1)} className="btn-outline mt-4">日付を選び直す</button>
+        </>
+      )}
+
+      {step === 3 && (
+        <>
+          <StepHeader step={3} total={6} title="人数を選ぶ" />
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <button key={n} onClick={() => pickParty(n)} className={`chip ${partySize === n ? 'chip-on' : ''}`}>{n}名</button>
+            ))}
+          </div>
+          <p className="mt-3 rounded-xl bg-cream-deep p-3 text-sm text-sumi-soft">
+            9名以上のご予約は、お手数ですが店舗へ直接ご相談ください。
+          </p>
+          <button onClick={() => setStep(2)} className="btn-outline mt-4">時間を選び直す</button>
+        </>
+      )}
+
+      {step === 4 && (
+        <>
+          <StepHeader step={4} total={6} title="お客様情報を入力" />
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="field-label">お名前 <span className="text-shu">必須</span></label>
+              <input id="name" className="field-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+            </div>
+            <div>
+              <label htmlFor="phone" className="field-label">電話番号 <span className="text-shu">必須</span></label>
+              <input id="phone" type="tel" inputMode="tel" className="field-input" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="09012345678" />
+            </div>
+            <div>
+              <label htmlFor="email" className="field-label">メールアドレス（任意）</label>
+              <input id="email" type="email" className="field-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label htmlFor="child" className="field-label">お子様の人数</label>
+                <input id="child" type="number" min={0} max={8} className="field-input" value={childCount} onChange={(e) => setChildCount(Number(e.target.value))} />
+              </div>
+              <div className="flex-1">
+                <span className="field-label">ベビーカー</span>
+                <button type="button" onClick={() => setHasStroller(!hasStroller)} className={`chip w-full ${hasStroller ? 'chip-on' : ''}`}>{hasStroller ? 'あり' : 'なし'}</button>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="allergy" className="field-label">アレルギー等の連絡事項（任意）</label>
+              <textarea id="allergy" className="field-input py-2" rows={2} value={allergy} onChange={(e) => setAllergy(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="note" className="field-label">備考（任意）</label>
+              <textarea id="note" className="field-input py-2" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
+          <button onClick={() => { if (!name.trim() || !phone.trim()) { setError('お名前と電話番号は必須です。'); return; } setError(''); setStep(5); }} className="btn-primary mt-5">入力内容を確認する</button>
+          {error && <p className="error-text" role="alert">{error}</p>}
+        </>
+      )}
+
+      {step === 5 && (
+        <>
+          <StepHeader step={5} total={6} title="内容を確認" />
+          <dl className="card space-y-2 text-sm">
+            <Row k="日付" v={jpDateLabel(date)} />
+            <Row k="時間" v={time} />
+            <Row k="人数" v={`${partySize}名`} />
+            <Row k="お名前" v={name} />
+            <Row k="電話番号" v={phone} />
+            {email && <Row k="メール" v={email} />}
+            {childCount > 0 && <Row k="お子様" v={`${childCount}名`} />}
+            {hasStroller && <Row k="ベビーカー" v="あり" />}
+            {allergy && <Row k="連絡事項" v={allergy} />}
+            {note && <Row k="備考" v={note} />}
+          </dl>
+          <p className="mt-3 text-xs text-sumi-soft">お支払いは店舗にてお願いいたします。</p>
+          {error && <p className="error-text" role="alert">{error}</p>}
+          <button onClick={submit} disabled={submitting} className="btn-primary mt-4">
+            {submitting ? '送信中…' : 'この内容で予約する'}
+          </button>
+          <button onClick={() => setStep(4)} className="btn-outline mt-2">入力に戻る</button>
+        </>
+      )}
+    </main>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-sumi-soft">{k}</dt>
+      <dd className="text-right font-semibold text-sumi">{v}</dd>
+    </div>
+  );
+}

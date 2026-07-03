@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+/* 薄い和柄（麻の葉風）を背景に敷く */
+body {
+  background-color: #F7F1E3;
+  color: #3B2A20;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(59, 42, 32, 0.04) 1px, transparent 0);
+  background-size: 22px 22px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* フォーカス表示を明確に（アクセシビリティ） */
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid #B5482E;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@layer components {
+  .btn-primary {
+    @apply min-h-touch w-full rounded-xl2 bg-shu px-6 text-lg font-bold text-cream
+           shadow-sm transition active:translate-y-px hover:bg-shu-soft
+           flex items-center justify-center gap-2;
+  }
+  .btn-outline {
+    @apply min-h-touch w-full rounded-xl2 border-2 border-sumi/25 bg-cream px-6 text-lg
+           font-bold text-sumi transition active:translate-y-px hover:border-shu
+           flex items-center justify-center gap-2;
+  }
+  .card {
+    @apply rounded-xl2 border border-sumi/10 bg-white/70 p-5 shadow-sm;
+  }
+  .field-label {
+    @apply mb-1 block text-base font-semibold text-sumi;
+  }
+  .field-input {
+    @apply min-h-touch w-full rounded-xl border-2 border-sumi/20 bg-white px-4 text-base
+           text-sumi placeholder:text-sumi/40 focus:border-shu;
+  }
+  .chip {
+    @apply min-h-touch inline-flex items-center justify-center rounded-full border-2
+           border-sumi/20 bg-white px-4 text-base font-semibold text-sumi transition;
+  }
+  .chip-on {
+    @apply border-shu bg-shu text-cream;
+  }
+  .error-text {
+    @apply mt-1 text-sm font-semibold text-shu;
+  }
+}

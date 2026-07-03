@@ -1,0 +1,14 @@
+/** 管理者ガード: ログイン済み かつ admins テーブルに存在するユーザーのみ許可。 */
+import { redirect } from 'next/navigation';
+import { createSupabaseServer } from '@/lib/supabase/server';
+import { useMockData } from '@/lib/config';
+
+export async function requireAdmin(): Promise<{ email: string; role: string }> {
+  if (useMockData) return { email: 'dev@example.com', role: 'owner' }; // 開発モックはUI確認のため素通し
+  const sb = createSupabaseServer();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) redirect('/admin/login');
+  const { data: admin } = await sb.from('admins').select('email,role').eq('id', user.id).maybeSingle();
+  if (!admin) redirect('/admin/login?error=not_admin');
+  return { email: admin.email, role: admin.role };
+}
