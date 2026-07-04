@@ -18,7 +18,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
   }
 
-  let body: { events?: { webhookEventId?: string; type: string }[] } = {};
+  let body: {
+    events?: {
+      webhookEventId?: string;
+      type: string;
+      source?: { type: string; userId?: string; groupId?: string; roomId?: string };
+    }[];
+  } = {};
   try {
     body = JSON.parse(raw);
   } catch {
@@ -27,6 +33,12 @@ export async function POST(req: NextRequest) {
 
   for (const ev of body.events ?? []) {
     const eventId = ev.webhookEventId ?? `${Date.now()}-${Math.random()}`;
+    console.log('[LINE webhook] source', {
+      type: ev.source?.type,
+      userId: ev.source?.userId,
+      groupId: ev.source?.groupId,
+      roomId: ev.source?.roomId,
+    });
     if (!useMockData) {
       try {
         const sb = createSupabaseAdmin();
