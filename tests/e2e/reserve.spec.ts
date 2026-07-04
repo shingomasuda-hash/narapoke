@@ -14,12 +14,13 @@ test('スマホ幅で席予約を完了できる', async ({ page }) => {
   const timeBtn = page.locator('button:not([disabled])').filter({ hasText: ':' }).first();
   await timeBtn.click();
 
-  // STEP3 人数
-  await page.getByRole('button', { name: '2名' }).click();
+  // STEP3 人数（大人2名のまま次へ）
+  await page.getByRole('button', { name: '次へ' }).click();
 
   // STEP4 情報入力
   await page.locator('#name').fill('テスト太郎');
   await page.locator('#phone').fill('09012345678');
+  await page.locator('#email').fill('test@example.com');
   await page.getByRole('button', { name: '入力内容を確認する' }).click();
 
   // STEP5 確認 → 確定

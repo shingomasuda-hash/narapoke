@@ -20,6 +20,8 @@ export const env = {
   lineStaffDestinationId: process.env.LINE_STAFF_DESTINATION_ID ?? '',
   lineIntegrationEnabled: process.env.LINE_INTEGRATION_ENABLED === 'true',
   cronSecret: process.env.CRON_SECRET ?? '',
+  resendApiKey: process.env.RESEND_API_KEY ?? '',
+  resendFromEmail: process.env.RESEND_FROM_EMAIL ?? 'なら和ポケ日和 <onboarding@resend.dev>',
   takeoutTaxRate: process.env.TAKEOUT_TAX_RATE ? Number(process.env.TAKEOUT_TAX_RATE) : undefined,
   reservationMaxDays: process.env.RESERVATION_MAX_DAYS ? Number(process.env.RESERVATION_MAX_DAYS) : 60,
 };
@@ -31,3 +33,6 @@ export const useMockData = !isProd && !isSupabaseConfigured;
 /** LINE 送信が有効か。フラグ ON かつ資格情報が揃っている場合のみ実送信。 */
 export const lineSendEnabled =
   env.lineIntegrationEnabled && Boolean(env.lineChannelAccessToken);
+
+/** メール送信が有効か。RESEND_API_KEY が設定されている場合のみ実送信（未設定時はログ出力のモック）。 */
+export const emailSendEnabled = Boolean(env.resendApiKey);

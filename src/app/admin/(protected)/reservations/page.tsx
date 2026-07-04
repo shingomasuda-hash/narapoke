@@ -1,26 +1,24 @@
-import { loadTodayReservations } from '@/lib/admin-data';
-import { ResStatus } from '../StatusButtons';
+import { loadReservationsForDate, todayJst } from '@/lib/admin-data';
+import { DateNav } from '../DateNav';
+import { ReservationCard } from '../ReservationCard';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminReservations() {
-  const list = await loadTodayReservations();
+function normalizeDate(raw: string | undefined): string {
+  return raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : todayJst();
+}
+
+export default async function AdminReservations({ searchParams }: { searchParams: { date?: string } }) {
+  const date = normalizeDate(searchParams.date);
+  const list = await loadReservationsForDate(date);
   return (
     <div className="space-y-3">
-      <h1 className="font-serif text-xl font-bold text-sumi">本日の席予約</h1>
-      {list.length === 0 && <p className="text-sumi-soft">本日の予約はありません。</p>}
-      {list.map((r) => (
-        <div key={r.id} className="card space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-sumi">{new Date(r.start_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })} ・ {r.party_size}名</span>
-            <span className="text-xs text-sumi-soft">{r.reservation_code}</span>
-          </div>
-          <p className="text-sm">{r.customer_name}様 / <a href={`tel:${r.phone}`} className="text-shu underline">{r.phone}</a></p>
-          {r.allergy && <p className="text-xs text-shu">アレルギー: {r.allergy}</p>}
-          {r.note && <p className="text-xs text-sumi-soft">備考: {r.note}</p>}
-          <ResStatus id={r.id} status={r.status} />
-        </div>
-      ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-serif text-xl font-bold text-sumi">席予約（{date}）</h1>
+        <DateNav date={date} basePath="/admin/reservations" />
+      </div>
+      {list.length === 0 && <p className="text-sumi-soft">この日の予約はありません。</p>}
+      {list.map((r) => <ReservationCard key={r.id} r={r} />)}
     </div>
   );
 }

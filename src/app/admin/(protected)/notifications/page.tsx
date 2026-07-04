@@ -1,4 +1,4 @@
-import { useMockData, lineSendEnabled, env } from '@/lib/config';
+import { useMockData, lineSendEnabled, emailSendEnabled, env } from '@/lib/config';
 import { createSupabaseServer } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -19,11 +19,13 @@ export default async function AdminNotifications() {
   const logs = await loadLogs();
   return (
     <div className="space-y-3">
-      <h1 className="font-serif text-xl font-bold text-sumi">LINE通知設定・履歴</h1>
+      <h1 className="font-serif text-xl font-bold text-sumi">通知設定・履歴</h1>
       <div className="card space-y-1 text-sm">
         <p>LINE連携: <span className={`font-bold ${lineSendEnabled ? 'text-matcha' : 'text-shu'}`}>{lineSendEnabled ? '有効（実送信）' : '無効（モック/未設定）'}</span></p>
         <p className="text-sumi-soft">スタッフ通知先: {env.lineStaffDestinationId ? '設定済み' : '未設定'}</p>
         <p className="text-xs text-sumi-soft">有効化は環境変数 LINE_INTEGRATION_ENABLED と各種トークンで行います（README参照）。</p>
+        <p className="pt-2">メール連携(Resend): <span className={`font-bold ${emailSendEnabled ? 'text-matcha' : 'text-shu'}`}>{emailSendEnabled ? '有効（実送信）' : '無効（モック/未設定）'}</span></p>
+        <p className="text-xs text-sumi-soft">有効化は環境変数 RESEND_API_KEY / RESEND_FROM_EMAIL で行います。</p>
       </div>
       <h2 className="font-serif font-bold text-sumi">送信履歴（最新50件）</h2>
       <div className="space-y-1">

@@ -64,8 +64,9 @@ export async function GET(req: NextRequest) {
     const check = canReserve({ existing, candidate: { start: startAt, end: endAt, size: partySize }, capacity: settings.seatCapacity });
     return {
       time: s.label,
-      available: !blocked && check.ok,
-      remaining: blocked ? 0 : check.remaining,
+      // 締切(現在時刻から accept_cutoff_minutes 分後より前)を過ぎた枠は無効表示にする（一覧からは消さない）
+      available: !s.pastCutoff && !blocked && check.ok,
+      remaining: s.pastCutoff || blocked ? 0 : check.remaining,
     };
   });
 

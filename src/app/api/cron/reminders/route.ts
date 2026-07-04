@@ -1,15 +1,23 @@
 /**
- * リマインド定期実行（Vercel Cron 想定）。
- * - 席予約: 前日18:00 / 開始2時間前
- * - テイクアウト: 受取2時間前
+ * リマインド定期実行（Vercel Cron 想定・1日1回 JST9:00）。
+ * - 席予約: 開始2時間前(LINE) / 前日・当日の確認メール
+ * - テイクアウト: 受取2時間前(LINE)
  * - notification_logs で同一リマインドの二重送信を防止。
  * 認証: Authorization: Bearer CRON_SECRET
+ *
+ * メールは1日1回のこのバッチでのみ送るため、「前日確認」は実行日の翌日が
+ * service_date の予約、「当日確認」は実行日が service_date の予約が対象になる。
+ * 9:00 以降にその日の予約が入った場合は完了メールが当日確認を兼ねる。
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { env, useMockData } from '@/lib/config';
 import { loadSettings } from '@/lib/settings';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { notify } from '@/lib/line/client';
+import { sendEmail } from '@/lib/email/client';
+import { reservationConfirmPrevDayEmail, reservationConfirmTodayEmail } from '@/lib/email/templates';
+import { addDaysJst } from '@/lib/time';
+import { todayJst } from '@/lib/admin-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +73,32 @@ export async function GET(req: NextRequest) {
       to: o.line_user_id,
       messages: [{ type: 'text', text: `まもなく受取時刻です。ご注文 ${o.order_code}（¥${o.total.toLocaleString()}）` }],
       targetType: 'takeout', targetId: o.id, kind: 'reminder_before',
+    });
+    sent++;
+  }
+
+  // 前日・当日の確認メール（席予約、1日1回のこのバッチでのみ送信）
+  const today = todayJst();
+  const tomorrow = addDaysJst(today, 1);
+  const { data: mailTargets } = await sb
+    .from('reservations')
+    .select('id,email,customer_name,start_at,service_date,reservation_code,party_size')
+    .eq('status', 'confirmed')
+    .in('service_date', [today, tomorrow])
+    .not('email', 'is', null);
+
+  for (const r of mailTargets ?? []) {
+    if (!r.email) continue;
+    const when = new Date(r.start_at).toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
+    const isToday = r.service_date === today;
+    const mail = isToday
+      ? reservationConfirmTodayEmail({ customerName: r.customer_name, when, partySize: r.party_size, code: r.reservation_code })
+      : reservationConfirmPrevDayEmail({ customerName: r.customer_name, when, partySize: r.party_size, code: r.reservation_code });
+    await sendEmail({
+      to: r.email, ...mail, targetType: 'reservation', targetId: r.id,
+      kind: isToday ? 'email_confirm_today' : 'email_confirm_prev_day',
     });
     sent++;
   }

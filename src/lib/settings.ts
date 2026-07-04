@@ -22,7 +22,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   slotMinutes: 30,
   maxPartySize: 8,
   reservationMaxDays: env.reservationMaxDays,
-  acceptCutoffMinutes: 60,
+  acceptCutoffMinutes: 20,
   lunchStayMinutes: 90,
   dinnerStayMinutes: 120,
   takeoutSlotMinutes: 30,

@@ -32,6 +32,10 @@ export function nextDates(days: number) {
   return out;
 }
 
+export function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export function jpDateLabel(value: string): string {
   if (!value) return '';
   const [y, m, d] = value.split('-').map(Number);

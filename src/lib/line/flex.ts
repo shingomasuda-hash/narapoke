@@ -59,6 +59,35 @@ export function takeoutFlex(p: {
   };
 }
 
+/** スタッフグループ宛て「新規予約」通知の文面。 */
+export function staffReservationNotice(p: {
+  createdAt: Date;
+  when: string;
+  adultCount: number;
+  childCount: number;
+  petCount: number;
+  customerName: string;
+  phone: string;
+  email: string;
+}): string {
+  const executedAt = p.createdAt.toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+  const total = p.adultCount + p.childCount;
+  const breakdown = [`大人${p.adultCount}`];
+  if (p.childCount > 0) breakdown.push(`子供${p.childCount}`);
+  if (p.petCount > 0) breakdown.push(`ペット${p.petCount}`);
+  return [
+    '【新規予約】',
+    `予約実施日時：${executedAt}`,
+    `予約日時：${p.when}`,
+    `人数：${total}名（${breakdown.join('・')}）`,
+    `名前：${p.customerName}様`,
+    `電話番号：${p.phone}`,
+    `メアド：${p.email}`,
+  ].join('\n');
+}
+
 function kv(k: string, v: string) {
   return {
     type: 'box', layout: 'baseline', spacing: 'sm',

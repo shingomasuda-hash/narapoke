@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const raw = generateStartSlots({
     serviceDate: date, slotMinutes: settings.takeoutSlotMinutes,
     acceptCutoffMinutes: settings.takeoutCutoffMinutes,
-  });
+  }).filter((s) => !s.pastCutoff);
 
   const counts = new Map<string, number>();
   if (!useMockData) {

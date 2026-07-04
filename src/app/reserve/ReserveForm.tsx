@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { StepHeader } from '@/components/StepHeader';
 import { initLiff } from '@/lib/liff';
 import { createReservationAction } from '@/actions/reservation';
-import { generateIdempotencyKeyClient, jpDateLabel, nextDates } from '@/lib/client-util';
+import { generateIdempotencyKeyClient, isValidEmail, jpDateLabel, nextDates } from '@/lib/client-util';
 
 interface Slot { time: string; available: boolean; remaining: number }
 
@@ -17,12 +17,13 @@ export function ReserveForm() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [closed, setClosed] = useState<string | null>(null);
   const [time, setTime] = useState('');
-  const [partySize, setPartySize] = useState(2);
+  const [adultCount, setAdultCount] = useState(2);
+  const [childCount, setChildCount] = useState(0);
+  const [petCount, setPetCount] = useState(0);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
-  const [childCount, setChildCount] = useState(0);
   const [hasStroller, setHasStroller] = useState(false);
   const [allergy, setAllergy] = useState('');
   const [idToken, setIdToken] = useState<string | undefined>();
@@ -56,26 +57,29 @@ export function ReserveForm() {
     }
   }
 
-  function pickDate(d: string) { setDate(d); setTime(''); loadSlots(d, partySize); setStep(2); }
+  const occupancy = adultCount + childCount;
+
+  function pickDate(d: string) { setDate(d); setTime(''); loadSlots(d, occupancy); setStep(2); }
   function pickTime(t: string) { setTime(t); setStep(3); }
-  function pickParty(n: number) { setPartySize(n); loadSlots(date, n); setStep(4); }
+  function confirmParty() { loadSlots(date, occupancy); setStep(4); }
 
   async function submit() {
     setError('');
     if (!name.trim()) return setError('お名前を入力してください。');
     if (!phone.trim()) return setError('電話番号を入力してください。');
+    if (!isValidEmail(email)) return setError('メールアドレスを正しく入力してください。');
     setSubmitting(true);
     const result = await createReservationAction({
-      serviceDate: date, startTime: time, partySize,
+      serviceDate: date, startTime: time, adultCount, childCount, petCount,
       customerName: name.trim(), phone: phone.trim(), email, note,
-      childCount, hasStroller, allergy, lineIdToken: idToken, idempotencyKey: idem,
+      hasStroller, allergy, lineIdToken: idToken, idempotencyKey: idem,
     });
     setSubmitting(false);
     if (result.ok && result.code) {
       router.push(`/reserve/complete?code=${encodeURIComponent(result.code)}&token=${encodeURIComponent(result.token ?? '')}`);
     } else {
       setError(result.message ?? '予約に失敗しました。');
-      if (result.errorCode === 'FULL') { setStep(2); loadSlots(date, partySize); }
+      if (result.errorCode === 'FULL') { setStep(2); loadSlots(date, occupancy); }
     }
   }
 
@@ -123,15 +127,17 @@ export function ReserveForm() {
       {step === 3 && (
         <>
           <StepHeader step={3} total={6} title="人数を選ぶ" />
-          <div className="grid grid-cols-4 gap-2">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <button key={n} onClick={() => pickParty(n)} className={`chip ${partySize === n ? 'chip-on' : ''}`}>{n}名</button>
-            ))}
+          <div className="space-y-4">
+            <Counter label="大人" value={adultCount} min={1} max={20} onChange={setAdultCount} />
+            <Counter label="子供" value={childCount} min={0} max={20} onChange={setChildCount} />
+            <Counter label="ペット" value={petCount} min={0} max={10} onChange={setPetCount} />
           </div>
-          <p className="mt-3 rounded-xl bg-cream-deep p-3 text-sm text-sumi-soft">
+          <p className="mt-3 text-sm font-semibold text-sumi">合計 {occupancy}名{petCount > 0 ? `・ペット${petCount}` : ''}</p>
+          <p className="mt-2 rounded-xl bg-cream-deep p-3 text-sm text-sumi-soft">
             9名以上のご予約は、お手数ですが店舗へ直接ご相談ください。
           </p>
-          <button onClick={() => setStep(2)} className="btn-outline mt-4">時間を選び直す</button>
+          <button onClick={confirmParty} className="btn-primary mt-4">次へ</button>
+          <button onClick={() => setStep(2)} className="btn-outline mt-2">時間を選び直す</button>
         </>
       )}
 
@@ -148,19 +154,15 @@ export function ReserveForm() {
               <input id="phone" type="tel" inputMode="tel" className="field-input" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="09012345678" />
             </div>
             <div>
-              <label htmlFor="email" className="field-label">メールアドレス（任意）</label>
+              <label htmlFor="email" className="field-label">メールアドレス <span className="text-shu">必須</span></label>
               <input id="email" type="email" className="field-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
             </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label htmlFor="child" className="field-label">お子様の人数</label>
-                <input id="child" type="number" min={0} max={8} className="field-input" value={childCount} onChange={(e) => setChildCount(Number(e.target.value))} />
-              </div>
-              <div className="flex-1">
+            {childCount > 0 && (
+              <div>
                 <span className="field-label">ベビーカー</span>
                 <button type="button" onClick={() => setHasStroller(!hasStroller)} className={`chip w-full ${hasStroller ? 'chip-on' : ''}`}>{hasStroller ? 'あり' : 'なし'}</button>
               </div>
-            </div>
+            )}
             <div>
               <label htmlFor="allergy" className="field-label">アレルギー等の連絡事項（任意）</label>
               <textarea id="allergy" className="field-input py-2" rows={2} value={allergy} onChange={(e) => setAllergy(e.target.value)} />
@@ -170,8 +172,13 @@ export function ReserveForm() {
               <textarea id="note" className="field-input py-2" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
           </div>
-          <button onClick={() => { if (!name.trim() || !phone.trim()) { setError('お名前と電話番号は必須です。'); return; } setError(''); setStep(5); }} className="btn-primary mt-5">入力内容を確認する</button>
+          <button onClick={() => {
+            if (!name.trim() || !phone.trim()) { setError('お名前と電話番号は必須です。'); return; }
+            if (!isValidEmail(email)) { setError('メールアドレスを正しく入力してください。'); return; }
+            setError(''); setStep(5);
+          }} className="btn-primary mt-5">入力内容を確認する</button>
           {error && <p className="error-text" role="alert">{error}</p>}
+          <button onClick={() => setStep(3)} className="btn-outline mt-2">人数選択に戻る</button>
         </>
       )}
 
@@ -181,11 +188,10 @@ export function ReserveForm() {
           <dl className="card space-y-2 text-sm">
             <Row k="日付" v={jpDateLabel(date)} />
             <Row k="時間" v={time} />
-            <Row k="人数" v={`${partySize}名`} />
+            <Row k="人数" v={`${occupancy}名（大人${adultCount}${childCount > 0 ? `・子供${childCount}` : ''}${petCount > 0 ? `・ペット${petCount}` : ''}）`} />
             <Row k="お名前" v={name} />
             <Row k="電話番号" v={phone} />
             {email && <Row k="メール" v={email} />}
-            {childCount > 0 && <Row k="お子様" v={`${childCount}名`} />}
             {hasStroller && <Row k="ベビーカー" v="あり" />}
             {allergy && <Row k="連絡事項" v={allergy} />}
             {note && <Row k="備考" v={note} />}
@@ -199,6 +205,19 @@ export function ReserveForm() {
         </>
       )}
     </main>
+  );
+}
+
+function Counter({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="field-label !mb-0">{label}</span>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} className="chip !min-h-0 h-10 w-10 !px-0 disabled:opacity-30">−</button>
+        <span className="w-8 text-center font-semibold text-sumi">{value}</span>
+        <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} className="chip !min-h-0 h-10 w-10 !px-0 disabled:opacity-30">＋</button>
+      </div>
+    </div>
   );
 }
 

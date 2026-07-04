@@ -17,7 +17,9 @@ import { generateReservationCode, generateCancelToken, hashToken } from '@/lib/c
 import { normalizePhone, isValidJpPhone } from '@/lib/phone';
 import { verifyLineIdToken } from '@/lib/line/verify';
 import { notify } from '@/lib/line/client';
-import { reservationFlex } from '@/lib/line/flex';
+import { reservationFlex, staffReservationNotice } from '@/lib/line/flex';
+import { sendEmail } from '@/lib/email/client';
+import { reservationCreatedEmail } from '@/lib/email/templates';
 import { useMockData, env } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -36,6 +38,8 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
     return { ok: false, errorCode: 'INVALID', message: parsed.error.errors[0]?.message ?? toFriendly('INVALID') };
   }
   const input = parsed.data;
+  // 座席の占有数 = 大人+子供（ペットは座席占有数に含めない）
+  const partySize = input.adultCount + input.childCount;
 
   // 2) レート制限（IP 単位）
   const ip = headers().get('x-forwarded-for') ?? 'local';
@@ -52,7 +56,7 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
   }
 
   // 3) 静的ルール（レースしない部分はここで弾く）
-  if (input.partySize > settings.maxPartySize) {
+  if (partySize > settings.maxPartySize) {
     return { ok: false, errorCode: 'TOO_MANY', message: toFriendly('TOO_MANY') };
   }
   if (isThursday(input.serviceDate)) {
@@ -90,7 +94,7 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
 
   // ---- 開発モック（Supabase 未設定時） ----
   if (useMockData) {
-    console.info('[MOCK] 予約作成', { code, serviceDate: input.serviceDate, startTime: input.startTime, partySize: input.partySize });
+    console.info('[MOCK] 予約作成', { code, serviceDate: input.serviceDate, startTime: input.startTime, partySize });
     return { ok: true, code, token };
   }
 
@@ -106,7 +110,7 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
       .in('status', ['confirmed', 'completed']);
     const pre = canReserve({
       existing: (existing ?? []).map((r) => ({ start: new Date(r.start_at), end: new Date(r.end_at), size: r.party_size })),
-      candidate: { start: startAt, end: endAt, size: input.partySize },
+      candidate: { start: startAt, end: endAt, size: partySize },
       capacity: settings.seatCapacity,
     });
     if (!pre.ok) return { ok: false, errorCode: 'FULL', message: toFriendly('FULL') };
@@ -115,7 +119,9 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
       p_service_date: input.serviceDate,
       p_start_at: startAt.toISOString(),
       p_end_at: endAt.toISOString(),
-      p_party_size: input.partySize,
+      p_party_size: partySize,
+      p_adult_count: input.adultCount,
+      p_pet_count: input.petCount ?? 0,
       p_customer_name: input.customerName,
       p_phone: phone,
       p_email: input.email || null,
@@ -139,16 +145,27 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
     if (lineUserId) {
       await notify({
         to: lineUserId,
-        messages: [reservationFlex({ code: row.reservation_code, when: whenLabel, partySize: input.partySize, token })],
+        messages: [reservationFlex({ code: row.reservation_code, when: whenLabel, partySize, token })],
         targetType: 'reservation', targetId: row.id, kind: 'created',
       });
     }
     if (env.lineStaffDestinationId) {
       await notify({
         to: env.lineStaffDestinationId,
-        messages: [{ type: 'text', text: `【新規予約】${whenLabel} ${input.partySize}名 ${input.customerName}様 (${row.reservation_code})` }],
+        messages: [{
+          type: 'text',
+          text: staffReservationNotice({
+            createdAt: new Date(), when: whenLabel,
+            adultCount: input.adultCount, childCount: input.childCount ?? 0, petCount: input.petCount ?? 0,
+            customerName: input.customerName, phone, email: input.email,
+          }),
+        }],
         targetType: 'reservation', targetId: row.id, kind: 'staff_created',
       });
+    }
+    if (input.email) {
+      const mail = reservationCreatedEmail({ customerName: input.customerName, when: whenLabel, partySize, code: row.reservation_code, token });
+      await sendEmail({ to: input.email, ...mail, targetType: 'reservation', targetId: row.id, kind: 'email_created' });
     }
     return { ok: true, code: row.reservation_code, token };
   } catch (e) {

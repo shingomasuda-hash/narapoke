@@ -74,6 +74,12 @@ export function weekdayOf(serviceDate: string): Weekday {
   return jstParts(jstInstant(serviceDate, 0)).weekday;
 }
 
+/** 営業日(YYYY-MM-DD, JST)を days 日ずらした営業日を返す（負数で過去方向）。 */
+export function addDaysJst(serviceDate: string, days: number): string {
+  const shifted = new Date(jstInstant(serviceDate, 0).getTime() + days * 86_400_000);
+  return jstParts(shifted).serviceDate;
+}
+
 export function isThursday(serviceDate: string): boolean {
   return weekdayOf(serviceDate) === THURSDAY;
 }
@@ -103,8 +109,9 @@ export function isWithinOpenWindows(
 }
 
 /**
- * 予約開始枠を生成する（30 分刻み等）。営業時間内の開始時刻のみを列挙する。
- * lastAcceptWindowMin: 「開始時刻の N 分前まで受付」の N。現在時刻より前や締切超過は除外する。
+ * 予約開始枠を生成する（30 分刻み等）。営業時間内の開始時刻をすべて列挙する。
+ * pastCutoff: 「開始時刻の N 分前まで受付」の締切を過ぎている（=選択不可）かどうか。
+ * 呼び出し側が「表示から除外する」か「無効表示にする」かを選べるよう、ここではフィルタしない。
  */
 export function generateStartSlots(params: {
   serviceDate: string;
@@ -112,23 +119,23 @@ export function generateStartSlots(params: {
   windows?: OpenWindow[];
   now?: Date;
   acceptCutoffMinutes?: number; // 予約開始 N 分前まで受付
-}): { minutes: number; label: string; startAt: Date }[] {
+}): { minutes: number; label: string; startAt: Date; pastCutoff: boolean }[] {
   const {
     serviceDate,
     slotMinutes,
     windows = DEFAULT_WINDOWS,
     now = new Date(),
-    acceptCutoffMinutes = 60,
+    acceptCutoffMinutes = 20,
   } = params;
 
-  const slots: { minutes: number; label: string; startAt: Date }[] = [];
+  const slots: { minutes: number; label: string; startAt: Date; pastCutoff: boolean }[] = [];
   for (const w of windows) {
     for (let t = w.openMin; t < w.closeMin; t += slotMinutes) {
       const startAt = jstInstant(serviceDate, t);
-      // 締切: 開始 N 分前を過ぎていたら除外
+      // 締切: 開始 N 分前を過ぎているか
       const cutoff = new Date(startAt.getTime() - acceptCutoffMinutes * 60_000);
-      if (cutoff.getTime() <= now.getTime()) continue;
-      slots.push({ minutes: t, label: formatMinutes(t), startAt });
+      const pastCutoff = cutoff.getTime() <= now.getTime();
+      slots.push({ minutes: t, label: formatMinutes(t), startAt, pastCutoff });
     }
   }
   return slots;

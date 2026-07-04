@@ -2,18 +2,27 @@
 import { useState, useTransition } from 'react';
 import { setReservationStatus, setOrderStatus, toggleSoldOut, togglePublished, updateItemPrice } from '@/actions/admin';
 
+const RES_STATUSES = ['confirmed', 'completed', 'no_show', 'cancelled'] as const;
+type ResStatusValue = (typeof RES_STATUSES)[number];
+const RES_STATUS_COLOR: Record<ResStatusValue, string> = {
+  confirmed: 'bg-sumi text-cream',
+  completed: 'bg-matcha text-white',
+  no_show: 'bg-sumi-soft text-white',
+  cancelled: 'bg-shu text-white',
+};
+
 export function ResStatus({ id, status }: { id: string; status: string }) {
-  const [cur, setCur] = useState(status);
+  const [cur, setCur] = useState(status as ResStatusValue);
   const [pending, start] = useTransition();
-  const act = (s: 'completed' | 'no_show' | 'cancelled') => start(async () => { await setReservationStatus(id, s); setCur(s); });
+  const act = (s: ResStatusValue) => start(async () => { await setReservationStatus(id, s); setCur(s); });
   return (
     <div className="flex flex-wrap gap-1">
-      <span className="rounded bg-cream-deep px-2 py-1 text-xs font-semibold">{jaRes(cur)}</span>
-      {cur === 'confirmed' && (<>
-        <button disabled={pending} onClick={() => act('completed')} className="rounded bg-matcha px-2 py-1 text-xs font-semibold text-white">来店済</button>
-        <button disabled={pending} onClick={() => act('no_show')} className="rounded bg-sumi-soft px-2 py-1 text-xs font-semibold text-white">無断</button>
-        <button disabled={pending} onClick={() => act('cancelled')} className="rounded bg-shu px-2 py-1 text-xs font-semibold text-white">取消</button>
-      </>)}
+      {RES_STATUSES.map((s) => (
+        <button key={s} disabled={pending || s === cur} onClick={() => act(s)}
+          className={`rounded px-2 py-1 text-xs font-semibold disabled:opacity-100 ${s === cur ? RES_STATUS_COLOR[s] : 'bg-cream-deep text-sumi-soft'}`}>
+          {jaRes(s)}
+        </button>
+      ))}
     </div>
   );
 }
@@ -39,11 +48,25 @@ export function MenuControls({ id, price, soldOut, published }: { id: string; pr
   const [pub, setPub] = useState(published);
   const [pending, start] = useTransition();
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <input type="number" value={p} onChange={(e) => setP(Number(e.target.value))} className="w-24 rounded border border-sumi/20 px-2 py-1 text-sm" />
-      <button disabled={pending} onClick={() => start(async () => { await updateItemPrice(id, p); })} className="rounded bg-sumi px-2 py-1 text-xs font-semibold text-cream">価格保存</button>
-      <button disabled={pending} onClick={() => start(async () => { await toggleSoldOut(id, !so); setSo(!so); })} className={`rounded px-2 py-1 text-xs font-semibold ${so ? 'bg-shu text-white' : 'bg-cream-deep'}`}>{so ? '売切中' : '在庫あり'}</button>
-      <button disabled={pending} onClick={() => start(async () => { await togglePublished(id, !pub); setPub(!pub); })} className={`rounded px-2 py-1 text-xs font-semibold ${pub ? 'bg-matcha text-white' : 'bg-cream-deep'}`}>{pub ? '公開中' : '非公開'}</button>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-1">
+        <input type="number" value={p} onChange={(e) => setP(Number(e.target.value))} className="w-24 rounded border border-sumi/20 px-2 py-1 text-sm" />
+        <button disabled={pending} onClick={() => start(async () => { await updateItemPrice(id, p); })} className="rounded bg-sumi px-2 py-1 text-xs font-semibold text-cream">保存</button>
+      </div>
+      <div className="flex items-center gap-1">
+        <select value={so ? 'sold_out' : 'in_stock'} onChange={(e) => setSo(e.target.value === 'sold_out')} className="rounded border border-sumi/20 px-2 py-1 text-sm">
+          <option value="in_stock">在庫あり</option>
+          <option value="sold_out">売切中</option>
+        </select>
+        <button disabled={pending} onClick={() => start(async () => { await toggleSoldOut(id, so); })} className="rounded bg-sumi px-2 py-1 text-xs font-semibold text-cream">保存</button>
+      </div>
+      <div className="flex items-center gap-1">
+        <select value={pub ? 'published' : 'unpublished'} onChange={(e) => setPub(e.target.value === 'published')} className="rounded border border-sumi/20 px-2 py-1 text-sm">
+          <option value="published">公開中</option>
+          <option value="unpublished">非公開</option>
+        </select>
+        <button disabled={pending} onClick={() => start(async () => { await togglePublished(id, pub); })} className="rounded bg-sumi px-2 py-1 text-xs font-semibold text-cream">保存</button>
+      </div>
     </div>
   );
 }
