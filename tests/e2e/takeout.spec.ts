@@ -18,6 +18,7 @@ test('スマホ幅でテイクアウト注文を完了できる', async ({ page 
 
   await page.locator('#tn').fill('テスト花子');
   await page.locator('#tp').fill('09087654321');
+  await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'この内容で注文する' }).click();
 
   await expect(page.getByText('ご注文を承りました')).toBeVisible();

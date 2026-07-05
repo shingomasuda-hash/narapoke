@@ -37,6 +37,7 @@ export function TakeoutForm() {
   const [note, setNote] = useState('');
   const [allergy, setAllergy] = useState('');
   const [idToken, setIdToken] = useState<string | undefined>();
+  const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -65,6 +66,7 @@ export function TakeoutForm() {
     if (cart.length === 0) return setError('商品を選択してください。');
     if (!time) return setError('受取時間を選択してください。');
     if (!name.trim() || !phone.trim()) return setError('お名前と電話番号は必須です。');
+    if (!agreed) return setError('プライバシーポリシーへの同意が必要です。');
     setSubmitting(true);
     const result = await createTakeoutAction({
       pickupDate: date, pickupTime: time,
@@ -202,8 +204,16 @@ export function TakeoutForm() {
             <p>点数: {cart.length}点</p>
             <p className="text-sumi-soft">お支払い: 店舗支払い</p>
           </div>
+          <label className="mt-4 flex items-start gap-2 text-sm text-sumi">
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 h-5 w-5 shrink-0" />
+            <span>
+              ご入力いただいた情報は注文管理・ご連絡・店舗運営の目的で利用します。
+              <Link href="/privacy" target="_blank" className="text-shu underline">プライバシーポリシー</Link>
+              に同意する
+            </span>
+          </label>
           {error && <p className="error-text" role="alert">{error}</p>}
-          <button onClick={submit} disabled={submitting} className="btn-primary mt-4">{submitting ? '送信中…' : 'この内容で注文する'}</button>
+          <button onClick={submit} disabled={submitting || !agreed} className="btn-primary mt-4">{submitting ? '送信中…' : 'この内容で注文する'}</button>
           <button onClick={() => setStep(3)} className="btn-outline mt-2">戻る</button>
         </>
       )}

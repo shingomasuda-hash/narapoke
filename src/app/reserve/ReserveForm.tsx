@@ -27,6 +27,7 @@ export function ReserveForm() {
   const [hasStroller, setHasStroller] = useState(false);
   const [allergy, setAllergy] = useState('');
   const [idToken, setIdToken] = useState<string | undefined>();
+  const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -68,6 +69,7 @@ export function ReserveForm() {
     if (!name.trim()) return setError('お名前を入力してください。');
     if (!phone.trim()) return setError('電話番号を入力してください。');
     if (!isValidEmail(email)) return setError('メールアドレスを正しく入力してください。');
+    if (!agreed) return setError('プライバシーポリシーへの同意が必要です。');
     setSubmitting(true);
     const result = await createReservationAction({
       serviceDate: date, startTime: time, adultCount, childCount, petCount,
@@ -197,8 +199,16 @@ export function ReserveForm() {
             {note && <Row k="備考" v={note} />}
           </dl>
           <p className="mt-3 text-xs text-sumi-soft">お支払いは店舗にてお願いいたします。</p>
+          <label className="mt-4 flex items-start gap-2 text-sm text-sumi">
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 h-5 w-5 shrink-0" />
+            <span>
+              ご入力いただいた情報は予約管理・ご連絡・店舗運営の目的で利用します。
+              <Link href="/privacy" target="_blank" className="text-shu underline">プライバシーポリシー</Link>
+              に同意する
+            </span>
+          </label>
           {error && <p className="error-text" role="alert">{error}</p>}
-          <button onClick={submit} disabled={submitting} className="btn-primary mt-4">
+          <button onClick={submit} disabled={submitting || !agreed} className="btn-primary mt-4">
             {submitting ? '送信中…' : 'この内容で予約する'}
           </button>
           <button onClick={() => setStep(4)} className="btn-outline mt-2">入力に戻る</button>

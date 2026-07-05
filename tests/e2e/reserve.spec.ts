@@ -23,7 +23,8 @@ test('スマホ幅で席予約を完了できる', async ({ page }) => {
   await page.locator('#email').fill('test@example.com');
   await page.getByRole('button', { name: '入力内容を確認する' }).click();
 
-  // STEP5 確認 → 確定
+  // STEP5 確認 → 同意チェック → 確定
+  await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'この内容で予約する' }).click();
 
   // 完了
