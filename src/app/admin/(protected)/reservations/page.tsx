@@ -17,6 +17,9 @@ export default async function AdminReservations({ searchParams }: { searchParams
         <h1 className="font-serif text-xl font-bold text-sumi">席予約（{date}）</h1>
         <DateNav date={date} basePath="/admin/reservations" />
       </div>
+      <a href={`/api/admin/export/reservations?date=${date}`} className="inline-block rounded-full border border-sumi/20 bg-white px-3 py-1.5 text-sm font-semibold text-sumi hover:border-shu">
+        この日の予約をCSVでダウンロード
+      </a>
       {list.length === 0 && <p className="text-sumi-soft">この日の予約はありません。</p>}
       {list.map((r) => <ReservationCard key={r.id} r={r} />)}
     </div>

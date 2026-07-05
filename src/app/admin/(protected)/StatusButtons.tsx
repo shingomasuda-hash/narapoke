@@ -14,7 +14,7 @@ const RES_STATUS_COLOR: Record<ResStatusValue, string> = {
 export function ResStatus({ id, status }: { id: string; status: string }) {
   const [cur, setCur] = useState(status as ResStatusValue);
   const [pending, start] = useTransition();
-  const act = (s: ResStatusValue) => start(async () => { await setReservationStatus(id, s); setCur(s); });
+  const act = (s: ResStatusValue) => start(async () => { await setReservationStatus(id, s, cur); setCur(s); });
   return (
     <div className="flex flex-wrap gap-1">
       {RES_STATUSES.map((s) => (

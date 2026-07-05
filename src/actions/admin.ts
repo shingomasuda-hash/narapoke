@@ -5,13 +5,32 @@ import { requireAdmin } from '@/lib/admin-guard';
 import { createSupabaseServer } from '@/lib/supabase/server';
 import { useMockData } from '@/lib/config';
 import { notify } from '@/lib/line/client';
+import { logAudit } from '@/lib/audit';
 
-export async function setReservationStatus(id: string, status: 'confirmed' | 'cancelled' | 'completed' | 'no_show') {
-  await requireAdmin();
+/** 予約詳細の表示を監査ログに記録する（一覧表示自体は対象外）。 */
+export async function logReservationView(id: string) {
+  const admin = await requireAdmin();
+  await logAudit({ adminId: admin.id, adminEmail: admin.email, action: 'view', targetType: 'reservation', targetId: id });
+  return { ok: true };
+}
+
+export async function setReservationStatus(
+  id: string,
+  status: 'confirmed' | 'cancelled' | 'completed' | 'no_show',
+  previousStatus?: string,
+) {
+  const admin = await requireAdmin();
   if (useMockData) return { ok: true };
   const sb = createSupabaseServer();
   const { error } = await sb.from('reservations').update({ status }).eq('id', id);
+  if (!error) {
+    await logAudit({
+      adminId: admin.id, adminEmail: admin.email, action: 'status_change', targetType: 'reservation', targetId: id,
+      detail: { from: previousStatus ?? null, to: status },
+    });
+  }
   revalidatePath('/admin/reservations');
+  revalidatePath('/admin');
   return { ok: !error };
 }
 

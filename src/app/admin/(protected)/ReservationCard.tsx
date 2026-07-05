@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { ResStatus } from './StatusButtons';
+import { logReservationView } from '@/actions/admin';
 import type { ReservationRow } from '@/lib/admin-data';
 
 function breakdownLabel(r: ReservationRow): string {
@@ -12,10 +13,18 @@ function breakdownLabel(r: ReservationRow): string {
 
 export function ReservationCard({ r }: { r: ReservationRow }) {
   const [open, setOpen] = useState(false);
+  const [, startAudit] = useTransition();
   const time = new Date(r.start_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
+  function toggle() {
+    setOpen((v) => {
+      const next = !v;
+      if (next) startAudit(async () => { await logReservationView(r.id); });
+      return next;
+    });
+  }
   return (
     <div className="card space-y-1">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
+      <button type="button" onClick={toggle} className="flex w-full items-center justify-between text-left">
         <span className="font-bold text-sumi">{time} ・ {r.party_size}名 ・ {r.customer_name}様</span>
         <span className="text-xs text-sumi-soft">{open ? '閉じる ▲' : '詳細 ▼'}</span>
       </button>
