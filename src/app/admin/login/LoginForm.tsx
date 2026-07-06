@@ -16,8 +16,16 @@ export function LoginForm() {
     if (!isSupabaseConfigured) { router.push('/admin'); return; } // 開発モックは素通し
     const sb = createSupabaseBrowser();
     const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { setBusy(false); setErr('ログインに失敗しました。メールアドレスとパスワードをご確認ください。'); return; }
+
+    // 2FA(TOTP)登録済みアカウントは、まだ aal2 に達していなければ確認画面へ誘導する。
+    // 未登録アカウントはここまで（今回は AAL2 を必須にしない）。
+    const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
     setBusy(false);
-    if (error) { setErr('ログインに失敗しました。メールアドレスとパスワードをご確認ください。'); return; }
+    if (aal && aal.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
+      router.push('/admin/login/mfa');
+      return;
+    }
     router.push('/admin');
     router.refresh();
   }

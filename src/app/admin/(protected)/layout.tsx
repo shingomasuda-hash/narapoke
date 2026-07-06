@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/closures', label: '臨時休業' },
   { href: '/admin/settings', label: '各種設定' },
   { href: '/admin/notifications', label: 'LINE通知' },
+  { href: '/admin/security', label: 'セキュリティ' },
 ];
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
