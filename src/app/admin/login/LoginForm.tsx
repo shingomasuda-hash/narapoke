@@ -1,8 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createSupabaseBrowser } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/config';
+import { signInAdminAction } from '@/actions/auth';
 
 export function LoginForm() {
   const router = useRouter();
@@ -14,15 +14,16 @@ export function LoginForm() {
   async function submit() {
     setErr(''); setBusy(true);
     if (!isSupabaseConfigured) { router.push('/admin'); return; } // 開発モックは素通し
-    const sb = createSupabaseBrowser();
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) { setBusy(false); setErr('ログインに失敗しました。メールアドレスとパスワードをご確認ください。'); return; }
+
+    // ログインはサーバー側(signInAdminAction)を経由させ、IPレート制限とアカウント
+    // ロックアウトを適用する（ブラウザから直接Supabaseを呼ぶと制限をかけられないため）。
+    const result = await signInAdminAction(email, password);
+    setBusy(false);
+    if (!result.ok) { setErr(result.message ?? 'ログインに失敗しました。'); return; }
 
     // 2FA(TOTP)登録済みアカウントは、まだ aal2 に達していなければ確認画面へ誘導する。
     // 未登録アカウントはここまで（今回は AAL2 を必須にしない）。
-    const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    setBusy(false);
-    if (aal && aal.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
+    if (result.needsMfa) {
       router.push('/admin/login/mfa');
       return;
     }

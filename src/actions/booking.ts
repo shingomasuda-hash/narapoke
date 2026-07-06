@@ -3,12 +3,19 @@
  * トークンによる予約/注文の確認・変更・キャンセル。
  * トークンは平文保存していないため、ハッシュで突合する。個人情報は最小限のみ返す。
  */
+import { headers } from 'next/headers';
 import { hashToken } from '@/lib/codes';
 import { cancelInputSchema } from '@/lib/schemas';
 import { useMockData } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { loadSettings } from '@/lib/settings';
 import { notify } from '@/lib/line/client';
+import { rateLimit } from '@/lib/rate-limit';
+
+function checkBookingRateLimit(): boolean {
+  const ip = headers().get('x-forwarded-for') ?? 'local';
+  return rateLimit(`booking:${ip}`, 10, 60_000).ok;
+}
 
 export interface BookingView {
   ok: boolean;
@@ -23,6 +30,7 @@ export interface BookingView {
 }
 
 export async function lookupBookingAction(token: string): Promise<BookingView> {
+  if (!checkBookingRateLimit()) return { ok: false, message: 'アクセスが集中しています。少し時間をおいてお試しください。' };
   if (!token || token.length < 10) return { ok: false, message: 'リンクが正しくありません。' };
   if (useMockData) {
     return { ok: true, kind: 'reservation', status: 'confirmed', code: 'R-XXXX-XXXX', when: '（開発モック）', partySize: 2, canCancel: true };
@@ -53,6 +61,7 @@ export async function lookupBookingAction(token: string): Promise<BookingView> {
 }
 
 export async function cancelBookingAction(rawToken: string): Promise<{ ok: boolean; message: string }> {
+  if (!checkBookingRateLimit()) return { ok: false, message: 'アクセスが集中しています。少し時間をおいてお試しください。' };
   const parsed = cancelInputSchema.safeParse({ token: rawToken });
   if (!parsed.success) return { ok: false, message: 'リンクが正しくありません。' };
   if (useMockData) return { ok: true, message: 'キャンセルしました（開発モック）。' };
