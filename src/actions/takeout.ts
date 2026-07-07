@@ -164,7 +164,7 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
       p_order_code: code,
       p_cancel_token_hash: tokenHash,
       p_idempotency_key: input.idempotencyKey,
-      p_items: JSON.stringify(itemSnapshots),
+      p_items: itemSnapshots,
     });
     if (error) {
       const known = ['CLOSED', 'FULL'].find((c) => error.message.includes(c));
