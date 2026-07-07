@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { loadPublicStoreInfo } from '@/lib/public-data';
 
@@ -17,9 +18,17 @@ export default async function TopPage() {
         <p className="mt-2 text-sm text-sumi-soft">奈良の和モダン・ポケ専門店</p>
       </header>
 
-      {/* 仮画像のヒーロー（PDF未着のためプレースホルダ） */}
-      <div className="flex h-40 items-center justify-center rounded-xl2 border border-sumi/10 bg-cream-deep text-sumi/40">
-        <span className="text-sm">店舗写真（仮画像）</span>
+      {/* 店舗ヒーロー画像 */}
+      <div className="overflow-hidden rounded-xl2 border border-sumi/10">
+        <Image
+          src="/nara-logo.png"
+          alt="なら和ポケ日和"
+          width={3300}
+          height={2334}
+          priority
+          sizes="(max-width: 448px) 100vw, 448px"
+          className="h-auto w-full"
+        />
       </div>
 
       {/* 2つの大きな選択肢 */}
