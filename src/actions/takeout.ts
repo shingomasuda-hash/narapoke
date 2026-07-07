@@ -9,8 +9,8 @@ import { takeoutInputSchema, type TakeoutInput } from '@/lib/schemas';
 import { toFriendly } from '@/lib/errors';
 import { rateLimit } from '@/lib/rate-limit';
 import { loadSettings } from '@/lib/settings';
-import { loadCatalog } from '@/lib/catalog';
-import { PLAN_RULES, validatePlanSelection, validatePokeDrinkSelection, calcThirdFruitSurcharge } from '@/lib/menu-rules';
+import { loadCatalog, resolveAddon } from '@/lib/catalog';
+import { validatePlanSelection, validateFruitVegSelection, validateSauceSelection, calcSubExcessFee, subExcessCount } from '@/lib/menu-rules';
 import { calcOrderTotals, type PriceLine } from '@/lib/pricing';
 import { parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows } from '@/lib/time';
 import { generateOrderCode, generateCancelToken, hashToken } from '@/lib/codes';
@@ -74,36 +74,38 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
 
     let optionsDelta = 0;
     const sel = line.selections ?? {};
+    let excessCount = 0;
+    let excessFee = 0;
 
-    // プランのメイン/サブ選択数検証
+    // プランのメイン/サブ選択数検証 + ソース選択必須検証
     if (item.code.startsWith('plan_')) {
       const planCode = item.code.replace('plan_', '').toUpperCase();
       const mains = sel.mains ?? [];
       const subs = sel.subs ?? [];
       const v = validatePlanSelection(planCode, mains, subs);
       if (!v.ok) return { ok: false, errorCode: 'INVALID', message: v.errors[0] };
-      void PLAN_RULES; // 参照（必須数は menu-rules 側で管理）
+      const sv = validateSauceSelection(sel.sauce ?? []);
+      if (!sv.ok) return { ok: false, errorCode: 'INVALID', message: sv.errors[0] };
+      excessCount = subExcessCount(planCode, subs.length);
+      excessFee = calcSubExcessFee(planCode, subs.length);
+      optionsDelta += excessFee;
     }
 
-    // ならポケドリンクの選択ルール検証
-    const isPokeDrink = item.code === 'poke_drink_single';
-    if (isPokeDrink) {
-      const v = validatePokeDrinkSelection(sel.fruits ?? [], sel.vegetables ?? []);
+    // ならポケドリンクの選択ルール検証（フルーツ・野菜あわせて3種類）
+    if (item.code === 'poke_drink_single') {
+      const v = validateFruitVegSelection(sel.fruitVeg ?? []);
       if (!v.ok) return { ok: false, errorCode: 'INVALID', message: v.errors[0] };
-      // 3種類目フルーツのみ加算（基本の2フルーツ+2野菜は 850 円に含む）。
-      optionsDelta += calcThirdFruitSurcharge(sel.fruits ?? []);
     }
 
-    // 選択された全オプションの追加料金を合算（売切確認込み）。
-    // ポケドリンクの fruits/vegetables は基本料金に含むため個別加算しない
-    // （3種目加算のみ上で計算済み。toppings 等の真の追加は下で加算）。
-    for (const [groupKey, codes] of Object.entries(sel)) {
-      if (isPokeDrink && (groupKey === 'fruits' || groupKey === 'vegetables')) continue;
+    // 選択された全コードの追加料金を合算（売切確認込み）。
+    // メイン/選択サブは menu_items、それ以外は menu_options に由来するため
+    // resolveAddon() が両テーブルから解決する（テーブルの違いによる加算漏れを防ぐ）。
+    for (const codes of Object.values(sel)) {
       for (const code of codes) {
-        const opt = options.get(code);
-        if (!opt) continue;
-        if (opt.soldOut) return { ok: false, errorCode: 'SOLD_OUT', message: `「${opt.name}」は売り切れです。` };
-        optionsDelta += opt.extraPrice;
+        const resolved = resolveAddon(code, items, options);
+        if (!resolved) continue;
+        if (resolved.soldOut) return { ok: false, errorCode: 'SOLD_OUT', message: `「${resolved.name}」は売り切れです。` };
+        optionsDelta += resolved.extraPrice;
       }
     }
 
@@ -112,11 +114,17 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
       optionsDelta += item.setDiscount;
     }
 
+    const snapshotSelections: Record<string, unknown> = { ...sel };
+    if (excessCount > 0) {
+      snapshotSelections.subExcessCount = excessCount;
+      snapshotSelections.subExcessFee = excessFee;
+    }
+
     priceLines.push({ name: item.name, unitPrice: item.price, optionsDelta, quantity: line.quantity });
     itemSnapshots.push({
       menu_item_id: '', item_code: item.code, item_name: item.name,
       unit_price: item.price, options_delta: optionsDelta, quantity: line.quantity,
-      line_subtotal: (item.price + optionsDelta) * line.quantity, selections: sel,
+      line_subtotal: (item.price + optionsDelta) * line.quantity, selections: snapshotSelections,
     });
   }
 

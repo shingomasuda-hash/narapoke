@@ -156,7 +156,7 @@ create table if not exists menu_items (
   category_id uuid not null references menu_categories(id) on delete cascade,
   code text not null unique,
   name text not null,
-  price int not null default 0,     -- 税抜単価（整数円）
+  price int not null default 0,     -- 税込単価（整数円）
   is_published boolean not null default true,
   is_sold_out boolean not null default false,
   sort_order int not null default 0,
@@ -183,7 +183,7 @@ create table if not exists menu_options (
   group_id uuid not null references menu_option_groups(id) on delete cascade,
   code text not null,
   name text not null,
-  extra_price int not null default 0,  -- 追加料金（税抜, 負値=割引）
+  extra_price int not null default 0,  -- 追加料金（税込, 負値=割引）
   is_published boolean not null default true,
   is_sold_out boolean not null default false,
   sort_order int not null default 0
@@ -224,8 +224,8 @@ create table if not exists takeout_order_items (
   menu_item_id uuid references menu_items(id) on delete set null,
   item_code text not null,       -- 注文時点のコード
   item_name text not null,       -- 注文時点の名称
-  unit_price int not null,       -- 注文時点の税抜単価
-  options_delta int not null default 0, -- 追加料金合計（税抜）
+  unit_price int not null,       -- 注文時点の税込単価
+  options_delta int not null default 0, -- 追加料金合計（税込）
   quantity int not null check (quantity > 0),
   line_subtotal int not null,    -- (unit_price + options_delta) * quantity
   selections jsonb not null default '{}'::jsonb, -- 選択内容のスナップショット

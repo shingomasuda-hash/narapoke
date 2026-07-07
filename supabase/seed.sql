@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 初期データ投入 seed
--- 価格はすべて税抜(整数円)。PDF 未確定の値は README「運用開始前に確認する項目」参照。
--- 管理画面から変更可能。
+-- 価格はすべて税込(整数円)。tax計算は税込金額からの逆算で行う（lib/pricing.ts参照）。
+-- PDF 未確定の値は README「運用開始前に確認する項目」参照。管理画面から変更可能。
 -- =====================================================================
 
 -- ---- 営業時間（0=日 .. 6=土, 木=4 は定休日） ----------------------
@@ -31,10 +31,10 @@ on conflict (code) do nothing;
 insert into menu_items (category_id, code, name, price, meta, sort_order)
 select c.id, x.code, x.name, x.price, x.meta::jsonb, x.sort
 from (values
-  ('plan_a','プランA',1200,'{"mainCount":2,"subCount":3}',1),
-  ('plan_b','プランB',1380,'{"mainCount":2,"subCount":4}',2),
-  ('plan_c','プランC',1480,'{"mainCount":3,"subCount":3}',3),
-  ('plan_d','プランD',1580,'{"mainCount":3,"subCount":4}',4)
+  ('plan_a','プランA',1320,'{"mainCount":2,"subCount":3}',1),
+  ('plan_b','プランB',1430,'{"mainCount":2,"subCount":4}',2),
+  ('plan_c','プランC',1680,'{"mainCount":3,"subCount":3}',3),
+  ('plan_d','プランD',1780,'{"mainCount":3,"subCount":4}',4)
 ) as x(code,name,price,meta,sort)
 cross join (select id from menu_categories where code='plan') c
 on conflict (code) do nothing;
@@ -62,7 +62,7 @@ from (values
 cross join (select id from menu_categories where code='sub_fixed') c
 on conflict (code) do nothing;
 
--- ---- 選択サブ（韓国海苔は初期 +100。※要確認） ------------------
+-- ---- 選択サブ（韓国海苔の追加料金は廃止） ------------------------
 insert into menu_items (category_id, code, name, price, sort_order)
 select c.id, x.code, x.name, x.price, x.sort
 from (values
@@ -70,7 +70,7 @@ from (values
   ('subc_nuts','ナッツ',0,4),('subc_lettuce','サニーレタス',0,5),('subc_friedonion','フライドオニオン',0,6),
   ('subc_creamcheese','クリームチーズ',0,7),('subc_gomawakame','ごまわかめ',0,8),('subc_paprika','パプリカ',0,9),
   ('subc_corn','コーン',0,10),('subc_tobikko','とびっこ',0,11),('subc_avocado','アボカド',0,12),
-  ('subc_takuan','たくあん',0,13),('subc_kannori','韓国海苔',100,14)
+  ('subc_takuan','たくあん',0,13),('subc_kannori','韓国海苔',0,14)
 ) as x(code,name,price,sort)
 cross join (select id from menu_categories where code='sub_choice') c
 on conflict (code) do nothing;
@@ -91,7 +91,7 @@ on conflict (code) do nothing;
 -- ---- ならポケドリンク（単品850 / セット割-100） -----------------
 insert into menu_items (category_id, code, name, price, meta, sort_order)
 select c.id, 'poke_drink_single','ならポケドリンク',850,
-  '{"setDiscount":-100,"fruitMin":2,"fruitMax":3,"baseTotal":4}'::jsonb,1
+  '{"setDiscount":-100}'::jsonb,1
 from (select id from menu_categories where code='poke_drink') c
 on conflict (code) do nothing;
 
@@ -125,42 +125,29 @@ cross join (select id from menu_categories where code='sweets') c
 on conflict (code) do nothing;
 
 -- =====================================================================
--- ならポケドリンクの選択オプショングループ（フルーツ/野菜/トッピング）
--- extra_price は「3種類目に選んだ場合の追加」等、サーバー側 menu-rules.ts でも検証。
+-- ならポケドリンクの選択オプショングループ（フルーツ・野菜は統合し合計3種選択／トッピング）
+-- extra_price は menu-rules.ts の検証と一致させる。
 -- =====================================================================
 insert into menu_option_groups (item_id, code, name, min_select, max_select, is_required, sort_order)
-select mi.id, 'fruits', 'フルーツ（2〜3種）', 2, 3, true, 1
+select mi.id, 'fruit_veg', 'フルーツ・野菜（合計3種）', 3, 3, true, 1
 from menu_items mi where mi.code = 'poke_drink_single'
 on conflict do nothing;
 
 insert into menu_option_groups (item_id, code, name, min_select, max_select, is_required, sort_order)
-select mi.id, 'vegetables', '野菜', 1, 2, true, 2
+select mi.id, 'toppings', '追加トッピング', 0, 0, false, 2
 from menu_items mi where mi.code = 'poke_drink_single'
 on conflict do nothing;
 
-insert into menu_option_groups (item_id, code, name, min_select, max_select, is_required, sort_order)
-select mi.id, 'toppings', '追加トッピング', 0, 0, false, 3
-from menu_items mi where mi.code = 'poke_drink_single'
-on conflict do nothing;
-
--- フルーツ（3種類目の追加料金は THIRD_FRUIT_SURCHARGE と一致させる）
+-- フルーツ・野菜（りんご・みかん・キウイは追加料金なし。特選のみ加算）
 insert into menu_options (group_id, code, name, extra_price, sort_order)
 select g.id, x.code, x.name, x.extra, x.sort
 from (values
   ('mango','マンゴー',0,1),('ichigo','いちご',0,2),('blueberry','ブルーベリー',0,3),
-  ('banana','バナナ',0,4),('ringo','りんご',80,5),('mikan','みかん',100,6),('kiwi','キウイ',100,7),
-  ('pine','パイン(特選)',80,8),('kaki','柿(特選)',80,9),('grapefruit','グレープフルーツ(特選)',150,10)
+  ('banana','バナナ',0,4),('ringo','りんご',0,5),('mikan','みかん',0,6),('kiwi','キウイ',0,7),
+  ('pine','パイン(特選)',80,8),('kaki','柿(特選)',80,9),('grapefruit','グレープフルーツ(特選)',150,10),
+  ('spinach','ほうれん草',0,11),('celery','セロリ',0,12),('basil','バジル',0,13),('komatsuna','小松菜',0,14)
 ) as x(code,name,extra,sort)
-cross join (select id from menu_option_groups where code='fruits') g
-on conflict do nothing;
-
--- 野菜
-insert into menu_options (group_id, code, name, extra_price, sort_order)
-select g.id, x.code, x.name, 0, x.sort
-from (values
-  ('spinach','ほうれん草',1),('celery','セロリ',2),('basil','バジル',3),('komatsuna','小松菜',4)
-) as x(code,name,sort)
-cross join (select id from menu_option_groups where code='vegetables') g
+cross join (select id from menu_option_groups where code='fruit_veg') g
 on conflict do nothing;
 
 -- 追加トッピング
@@ -170,6 +157,33 @@ from (values
   ('yogurt','ヨーグルト',1),('honey','はちみつ',2),('natadecoco','ナタデココ',3),('tapioca','タピオカ',4)
 ) as x(code,name,sort)
 cross join (select id from menu_option_groups where code='toppings') g
+on conflict do nothing;
+
+-- =====================================================================
+-- プラン共通オプション（item_id=null の汎用グループ。全プランA〜Dで共有）
+-- =====================================================================
+insert into menu_option_groups (item_id, code, name, min_select, max_select, is_required, sort_order)
+values (null, 'plan_sauce', 'ソース選択', 1, 1, true, 1)
+on conflict do nothing;
+
+insert into menu_options (group_id, code, name, extra_price, sort_order)
+select g.id, x.code, x.name, 0, x.sort
+from (values
+  ('standard','スタンダード（韓国風）',1),('spicy','スパイシー（ピリ辛）',2)
+) as x(code,name,sort)
+cross join (select id from menu_option_groups where code='plan_sauce' and item_id is null) g
+on conflict do nothing;
+
+insert into menu_option_groups (item_id, code, name, min_select, max_select, is_required, sort_order)
+values (null, 'plan_addon', '追加オプション', 0, 0, false, 2)
+on conflict do nothing;
+
+insert into menu_options (group_id, code, name, extra_price, sort_order)
+select g.id, x.code, x.name, x.extra, x.sort
+from (values
+  ('rice_large','ご飯大盛り',150,1),('egg_yolk','卵黄',150,2)
+) as x(code,name,extra,sort)
+cross join (select id from menu_option_groups where code='plan_addon' and item_id is null) g
 on conflict do nothing;
 
 -- ---- お知らせ（初期サンプル） ------------------------------------

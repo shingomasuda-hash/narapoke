@@ -42,7 +42,29 @@ const MOCK = {
   subs: [
     { code: 'subc_tomato', name: 'トマト', extra: 0 }, { code: 'subc_edamame', name: '枝豆', extra: 0 },
     { code: 'subc_tuna', name: 'ツナ', extra: 0 }, { code: 'subc_avocado', name: 'アボカド', extra: 0 },
-    { code: 'subc_corn', name: 'コーン', extra: 0 }, { code: 'subc_kannori', name: '韓国海苔', extra: 100 },
+    { code: 'subc_corn', name: 'コーン', extra: 0 }, { code: 'subc_kannori', name: '韓国海苔', extra: 0 },
+  ],
+  fruitVeg: [
+    { code: 'mango', name: 'マンゴー', extra: 0 }, { code: 'ichigo', name: 'いちご', extra: 0 },
+    { code: 'blueberry', name: 'ブルーベリー', extra: 0 }, { code: 'banana', name: 'バナナ', extra: 0 },
+    { code: 'ringo', name: 'りんご', extra: 0 }, { code: 'mikan', name: 'みかん', extra: 0 },
+    { code: 'kiwi', name: 'キウイ', extra: 0 },
+    { code: 'pine', name: 'パイン(特選)', extra: 80 }, { code: 'kaki', name: '柿(特選)', extra: 80 },
+    { code: 'grapefruit', name: 'グレープフルーツ(特選)', extra: 150 },
+    { code: 'spinach', name: 'ほうれん草', extra: 0 }, { code: 'celery', name: 'セロリ', extra: 0 },
+    { code: 'basil', name: 'バジル', extra: 0 }, { code: 'komatsuna', name: '小松菜', extra: 0 },
+  ],
+  toppings: [
+    { code: 'yogurt', name: 'ヨーグルト', extra: 100 }, { code: 'honey', name: 'はちみつ', extra: 100 },
+    { code: 'natadecoco', name: 'ナタデココ', extra: 100 }, { code: 'tapioca', name: 'タピオカ', extra: 100 },
+  ],
+  planSauce: [
+    { code: 'standard', name: 'スタンダード（韓国風）', extra: 0 },
+    { code: 'spicy', name: 'スパイシー（ピリ辛）', extra: 0 },
+  ],
+  planAddon: [
+    { code: 'rice_large', name: 'ご飯大盛り', extra: 150 },
+    { code: 'egg_yolk', name: '卵黄', extra: 150 },
   ],
 };
 
@@ -53,13 +75,22 @@ export async function GET() {
     const [{ data: cats }, { data: items }, { data: opts }] = await Promise.all([
       sb.from('menu_categories').select('code,name,sort_order').eq('is_published', true).order('sort_order'),
       sb.from('menu_items').select('code,name,price,is_sold_out,meta,sort_order,menu_categories(code)').eq('is_published', true).order('sort_order'),
-      sb.from('menu_options').select('code,name,extra_price,menu_option_groups(code)'),
+      sb.from('menu_options').select('code,name,extra_price,sort_order,is_published,menu_option_groups(code)').eq('is_published', true).order('sort_order'),
     ]);
     const mapped = (items ?? []).map((i) => ({
       code: i.code, name: i.name, price: i.price, soldOut: i.is_sold_out,
       // @ts-expect-error join shape
       category: i.menu_categories?.code as string, meta: i.meta,
     }));
+    // オプショングループ別に振り分け（fruit_veg / toppings / plan_sauce / plan_addon）。
+    const byGroup = new Map<string, { code: string; name: string; extra: number }[]>();
+    for (const o of opts ?? []) {
+      // @ts-expect-error join shape
+      const groupCode = o.menu_option_groups?.code as string | undefined;
+      if (!groupCode) continue;
+      if (!byGroup.has(groupCode)) byGroup.set(groupCode, []);
+      byGroup.get(groupCode)!.push({ code: o.code, name: o.name, extra: o.extra_price });
+    }
     // 顧客向けカタログ: 単品として並べるのは plan / poke_drink / drink / sweets のみ。
     const displayCats = new Set(['plan', 'poke_drink', 'drink', 'sweets']);
     return NextResponse.json({
@@ -67,7 +98,10 @@ export async function GET() {
       items: mapped.filter((i) => displayCats.has(i.category)),
       mains: mapped.filter((i) => i.category === 'main').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
       subs: mapped.filter((i) => i.category === 'sub_choice').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
-      void: opts?.length ?? 0,
+      fruitVeg: byGroup.get('fruit_veg') ?? [],
+      toppings: byGroup.get('toppings') ?? [],
+      planSauce: byGroup.get('plan_sauce') ?? [],
+      planAddon: byGroup.get('plan_addon') ?? [],
     });
   } catch {
     return NextResponse.json(MOCK);

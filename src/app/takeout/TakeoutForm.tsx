@@ -9,23 +9,23 @@ import { generateIdempotencyKeyClient, jpDateLabel, nextDates } from '@/lib/clie
 
 interface MItem { code: string; name: string; price: number; soldOut: boolean; category: string; meta?: { mainCount?: number; subCount?: number } }
 interface Opt { code: string; name: string; extra: number }
-interface CartLine { key: string; itemCode: string; name: string; unitPrice: number; optionsDelta: number; quantity: number; selections: Record<string, string[]> }
+interface CartLine {
+  key: string; itemCode: string; name: string; unitPrice: number; optionsDelta: number; quantity: number;
+  selections: Record<string, string[]>;
+  /** カート確認画面に表示するための補足（例: サブ追加分）。サーバーへは送らない。 */
+  note?: string;
+}
+interface MenuData {
+  categories: { code: string; name: string }[]; items: MItem[];
+  mains: Opt[]; subs: Opt[]; fruitVeg: Opt[]; toppings: Opt[]; planSauce: Opt[]; planAddon: Opt[];
+}
 
-const FRUITS: Opt[] = [
-  { code: 'mango', name: 'マンゴー', extra: 0 }, { code: 'ichigo', name: 'いちご', extra: 0 },
-  { code: 'blueberry', name: 'ブルーベリー', extra: 0 }, { code: 'banana', name: 'バナナ', extra: 0 },
-  { code: 'ringo', name: 'りんご(3種目+80)', extra: 80 }, { code: 'mikan', name: 'みかん(3種目+100)', extra: 100 },
-  { code: 'kiwi', name: 'キウイ(3種目+100)', extra: 100 },
-];
-const VEG: Opt[] = [
-  { code: 'spinach', name: 'ほうれん草', extra: 0 }, { code: 'celery', name: 'セロリ', extra: 0 },
-  { code: 'basil', name: 'バジル', extra: 0 }, { code: 'komatsuna', name: '小松菜', extra: 0 },
-];
+const SUB_EXCESS_FEE_PER_ITEM = 100;
 
 export function TakeoutForm() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [menu, setMenu] = useState<{ categories: { code: string; name: string }[]; items: MItem[]; mains: Opt[]; subs: Opt[] } | null>(null);
+  const [menu, setMenu] = useState<MenuData | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [editing, setEditing] = useState<MItem | null>(null);
   const [date, setDate] = useState('');
@@ -134,9 +134,7 @@ export function TakeoutForm() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-sumi">{l.name}</p>
-                    {Object.entries(l.selections).map(([g, arr]) => arr.length > 0 && (
-                      <p key={g} className="text-xs text-sumi-soft">{g}: {arr.join('・')}</p>
-                    ))}
+                    {l.note && <p className="text-xs text-shu">{l.note}</p>}
                     <p className="text-sm text-sumi-soft">¥{(l.unitPrice + l.optionsDelta).toLocaleString()}（税込）</p>
                   </div>
                   <button onClick={() => removeLine(l.key)} className="text-sm text-shu underline">削除</button>
@@ -219,7 +217,7 @@ export function TakeoutForm() {
       )}
 
       {editing && (
-        <CustomizeSheet item={editing} mains={menu.mains} subs={menu.subs}
+        <CustomizeSheet item={editing} menu={menu}
           onClose={() => setEditing(null)}
           onAdd={(line) => { setCart((c) => [...c, line]); setEditing(null); }} />
       )}
@@ -227,20 +225,24 @@ export function TakeoutForm() {
   );
 }
 
-/** プラン(メイン/サブ) / ならポケドリンク(フルーツ/野菜) のカスタマイズシート */
-function CustomizeSheet({ item, mains, subs, onClose, onAdd }: {
-  item: MItem; mains: Opt[]; subs: Opt[];
+/** プラン(メイン/サブ/ソース/追加オプション) / ならポケドリンク(フルーツ野菜/トッピング) のカスタマイズシート */
+function CustomizeSheet({ item, menu, onClose, onAdd }: {
+  item: MItem; menu: MenuData;
   onClose: () => void; onAdd: (l: CartLine) => void;
 }) {
   const isPoke = item.code === 'poke_drink_single';
   const [selMains, setSelMains] = useState<string[]>([]);
   const [selSubs, setSelSubs] = useState<string[]>([]);
-  const [selFruits, setSelFruits] = useState<string[]>([]);
-  const [selVeg, setSelVeg] = useState<string[]>([]);
+  const [selSauce, setSelSauce] = useState<string>('');
+  const [selAddons, setSelAddons] = useState<string[]>([]);
+  const [selFruitVeg, setSelFruitVeg] = useState<string[]>([]);
+  const [selToppings, setSelToppings] = useState<string[]>([]);
   const [err, setErr] = useState('');
 
   const needMain = item.meta?.mainCount ?? 0;
   const needSub = item.meta?.subCount ?? 0;
+  const subExcessCount = Math.max(0, selSubs.length - needSub);
+  const subExcessFee = subExcessCount * SUB_EXCESS_FEE_PER_ITEM;
 
   function toggle(list: string[], set: (v: string[]) => void, code: string, max: number) {
     if (list.includes(code)) set(list.filter((c) => c !== code));
@@ -250,20 +252,29 @@ function CustomizeSheet({ item, mains, subs, onClose, onAdd }: {
   function confirm() {
     const selections: Record<string, string[]> = {};
     let delta = 0;
+    let noteText: string | undefined;
     if (!isPoke) {
       if (selMains.length !== needMain) return setErr(`メインを${needMain}種類選んでください`);
-      if (selSubs.length !== needSub) return setErr(`サブを${needSub}種類選んでください`);
-      selections.mains = selMains; selections.subs = selSubs;
-      delta += mains.filter((m) => selMains.includes(m.code)).reduce((a, m) => a + m.extra, 0);
-      delta += subs.filter((s) => selSubs.includes(s.code)).reduce((a, s) => a + s.extra, 0);
+      if (selSubs.length < needSub) return setErr(`サブを${needSub}種類以上選んでください`);
+      if (!selSauce) return setErr('ソースを選んでください');
+      selections.mains = selMains;
+      selections.subs = selSubs;
+      selections.sauce = [selSauce];
+      if (selAddons.length > 0) selections.planAddon = selAddons;
+      delta += menu.mains.filter((m) => selMains.includes(m.code)).reduce((a, m) => a + m.extra, 0);
+      delta += menu.subs.filter((s) => selSubs.includes(s.code)).reduce((a, s) => a + s.extra, 0);
+      delta += menu.planSauce.filter((s) => selSauce === s.code).reduce((a, s) => a + s.extra, 0);
+      delta += menu.planAddon.filter((a) => selAddons.includes(a.code)).reduce((a, x) => a + x.extra, 0);
+      delta += subExcessFee;
+      if (subExcessCount > 0) noteText = `サブ追加分 ×${subExcessCount}（+¥${subExcessFee.toLocaleString()}）`;
     } else {
-      if (selFruits.length < 2) return setErr('フルーツは2種類以上選んでください');
-      if (selFruits.length + selVeg.length !== 4) return setErr('フルーツと野菜あわせて4種類選んでください');
-      selections.fruits = selFruits; selections.vegetables = selVeg;
-      // 3種類目フルーツのみ追加（並び順の3番目）
-      if (selFruits.length === 3) delta += FRUITS.find((f) => f.code === selFruits[2])?.extra ?? 0;
+      if (selFruitVeg.length !== 3) return setErr('フルーツ・野菜をあわせて3種類選んでください');
+      selections.fruitVeg = selFruitVeg;
+      if (selToppings.length > 0) selections.toppings = selToppings;
+      delta += menu.fruitVeg.filter((f) => selFruitVeg.includes(f.code)).reduce((a, f) => a + f.extra, 0);
+      delta += menu.toppings.filter((t) => selToppings.includes(t.code)).reduce((a, t) => a + t.extra, 0);
     }
-    onAdd({ key: crypto.randomUUID(), itemCode: item.code, name: item.name, unitPrice: item.price, optionsDelta: delta, quantity: 1, selections });
+    onAdd({ key: crypto.randomUUID(), itemCode: item.code, name: item.name, unitPrice: item.price, optionsDelta: delta, quantity: 1, selections, note: noteText });
   }
 
   return (
@@ -274,33 +285,50 @@ function CustomizeSheet({ item, mains, subs, onClose, onAdd }: {
           <>
             <p className="field-label">メイン（{needMain}種類） {selMains.length}/{needMain}</p>
             <div className="mb-4 flex flex-wrap gap-2">
-              {mains.map((m) => (
+              {menu.mains.map((m) => (
                 <button key={m.code} onClick={() => toggle(selMains, setSelMains, m.code, needMain)}
                   className={`chip ${selMains.includes(m.code) ? 'chip-on' : ''}`}>{m.name}{m.extra > 0 ? `+${m.extra}` : ''}</button>
               ))}
             </div>
-            <p className="field-label">サブ（{needSub}種類） {selSubs.length}/{needSub}</p>
-            <div className="mb-4 flex flex-wrap gap-2">
-              {subs.map((s) => (
-                <button key={s.code} onClick={() => toggle(selSubs, setSelSubs, s.code, needSub)}
+            <p className="field-label">サブ（{needSub}種類以上、超過分は1つ+{SUB_EXCESS_FEE_PER_ITEM}円） {selSubs.length}/{needSub}以上</p>
+            <div className="mb-1 flex flex-wrap gap-2">
+              {menu.subs.map((s) => (
+                <button key={s.code} onClick={() => toggle(selSubs, setSelSubs, s.code, menu.subs.length)}
                   className={`chip ${selSubs.includes(s.code) ? 'chip-on' : ''}`}>{s.name}{s.extra > 0 ? `+${s.extra}` : ''}</button>
+              ))}
+            </div>
+            {subExcessCount > 0 && (
+              <p className="mb-4 text-sm font-semibold text-shu">サブ追加分 ×{subExcessCount}（+¥{subExcessFee.toLocaleString()}）</p>
+            )}
+            <p className="field-label">ソース選択（必須）</p>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {menu.planSauce.map((s) => (
+                <button key={s.code} onClick={() => setSelSauce(s.code)}
+                  className={`chip ${selSauce === s.code ? 'chip-on' : ''}`}>{s.name}</button>
+              ))}
+            </div>
+            <p className="field-label">追加オプション（任意）</p>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {menu.planAddon.map((a) => (
+                <button key={a.code} onClick={() => toggle(selAddons, setSelAddons, a.code, menu.planAddon.length)}
+                  className={`chip ${selAddons.includes(a.code) ? 'chip-on' : ''}`}>{a.name}{a.extra > 0 ? `+${a.extra}` : ''}</button>
               ))}
             </div>
           </>
         ) : (
           <>
-            <p className="field-label">フルーツ（2〜3種） {selFruits.length}</p>
+            <p className="field-label">フルーツ・野菜（あわせて3種類） {selFruitVeg.length}/3</p>
             <div className="mb-4 flex flex-wrap gap-2">
-              {FRUITS.map((f) => (
-                <button key={f.code} onClick={() => toggle(selFruits, setSelFruits, f.code, 3)}
-                  className={`chip ${selFruits.includes(f.code) ? 'chip-on' : ''}`}>{f.name}</button>
+              {menu.fruitVeg.map((f) => (
+                <button key={f.code} onClick={() => toggle(selFruitVeg, setSelFruitVeg, f.code, 3)}
+                  className={`chip ${selFruitVeg.includes(f.code) ? 'chip-on' : ''}`}>{f.name}{f.extra > 0 ? `+${f.extra}` : ''}</button>
               ))}
             </div>
-            <p className="field-label">野菜 {selVeg.length}</p>
+            <p className="field-label">追加トッピング（任意）</p>
             <div className="mb-4 flex flex-wrap gap-2">
-              {VEG.map((v) => (
-                <button key={v.code} onClick={() => toggle(selVeg, setSelVeg, v.code, 2)}
-                  className={`chip ${selVeg.includes(v.code) ? 'chip-on' : ''}`}>{v.name}</button>
+              {menu.toppings.map((t) => (
+                <button key={t.code} onClick={() => toggle(selToppings, setSelToppings, t.code, menu.toppings.length)}
+                  className={`chip ${selToppings.includes(t.code) ? 'chip-on' : ''}`}>{t.name}{t.extra > 0 ? `+${t.extra}` : ''}</button>
               ))}
             </div>
           </>

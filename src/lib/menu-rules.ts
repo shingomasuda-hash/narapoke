@@ -9,9 +9,9 @@
 export interface PlanRule {
   code: 'A' | 'B' | 'C' | 'D';
   name: string;
-  basePrice: number; // 税込
+  basePrice: number; // 税込（参考値。実際の課金額は menu_items.price を権威とする）
   mainCount: number; // 必須メイン数
-  subCount: number; // 必須（選択）サブ数
+  subCount: number; // 最低限必要なサブ数（これを超えた分は1つにつき SUB_EXCESS_FEE_PER_ITEM を加算）
 }
 
 export const PLAN_RULES: Record<string, PlanRule> = {
@@ -21,14 +21,18 @@ export const PLAN_RULES: Record<string, PlanRule> = {
   D: { code: 'D', name: 'プランD', basePrice: 1780, mainCount: 3, subCount: 4 },
 };
 
+/** サブトッピングが選択可能数を超えた場合の、超過1つあたりの追加料金（税込）。 */
+export const SUB_EXCESS_FEE_PER_ITEM = 100;
+
 export interface ValidationResult {
   ok: boolean;
   errors: string[];
 }
 
 /**
- * プランのメイン/サブ選択数を厳密に検証する。
- * mains / subs は選択された ID の配列（重複可: 同じ具材を2つ等は仕様次第。ここでは要素数で判定）。
+ * プランのメイン/サブ選択数を検証する。
+ * - メインは必ず mainCount 種類ちょうど。
+ * - サブは subCount 種類以上（超過分は許容し、料金は calcSubExcessFee で別途加算する）。
  */
 export function validatePlanSelection(
   planCode: string,
@@ -43,57 +47,45 @@ export function validatePlanSelection(
   if (mains.length !== rule.mainCount) {
     errors.push(`${rule.name} のメインは${rule.mainCount}種類選んでください（現在 ${mains.length}種類）`);
   }
-  if (subs.length !== rule.subCount) {
-    errors.push(`${rule.name} のサブは${rule.subCount}種類選んでください（現在 ${subs.length}種類）`);
+  if (subs.length < rule.subCount) {
+    errors.push(`${rule.name} のサブは${rule.subCount}種類以上選んでください（現在 ${subs.length}種類）`);
   }
   return { ok: errors.length === 0, errors };
+}
+
+/** サブの選択超過数に応じた追加料金（税込）。超過がなければ 0。 */
+export function calcSubExcessFee(planCode: string, subsLength: number): number {
+  const rule = PLAN_RULES[planCode];
+  if (!rule) return 0;
+  const excess = Math.max(0, subsLength - rule.subCount);
+  return excess * SUB_EXCESS_FEE_PER_ITEM;
+}
+
+export function subExcessCount(planCode: string, subsLength: number): number {
+  const rule = PLAN_RULES[planCode];
+  if (!rule) return 0;
+  return Math.max(0, subsLength - rule.subCount);
 }
 
 /* ===== ならポケドリンクの選択ルール ===== */
 
-/** フルーツ2 + 野菜2 = 4 種類を基本。フルーツは最大3種類。 */
-export const POKE_DRINK_RULE = {
-  baseTotal: 4,
-  fruitMin: 2,
-  fruitMax: 3,
-} as const;
+/** フルーツ・野菜をあわせて必ず3種類選択する（各アイテムの追加料金は menu_options 側で管理）。 */
+export const FRUIT_VEG_TOTAL = 3;
 
-/**
- * 3種類目に選んだ場合のみ加算される追加料金（円, 税込）。
- * PDF 記載: りんご+80 / みかん+100 / キウイ+100、特選: パイン+80 / 柿+80 / グレープフルーツ+150。
- * ※ PDF 未確認のため README の要確認事項に記載。管理画面で変更可能。
- */
-export const THIRD_FRUIT_SURCHARGE: Record<string, number> = {
-  ringo: 80,
-  mikan: 100,
-  kiwi: 100,
-  pine: 80,
-  kaki: 80,
-  grapefruit: 150,
-};
-
-export function validatePokeDrinkSelection(
-  fruits: string[],
-  vegetables: string[]
-): ValidationResult {
+export function validateFruitVegSelection(codes: string[]): ValidationResult {
   const errors: string[] = [];
-  const f = fruits.length;
-  const v = vegetables.length;
-  if (f < POKE_DRINK_RULE.fruitMin) {
-    errors.push(`フルーツは最低${POKE_DRINK_RULE.fruitMin}種類選んでください`);
-  }
-  if (f > POKE_DRINK_RULE.fruitMax) {
-    errors.push(`フルーツは最大${POKE_DRINK_RULE.fruitMax}種類までです`);
-  }
-  if (f + v !== POKE_DRINK_RULE.baseTotal) {
-    errors.push(`フルーツと野菜あわせて${POKE_DRINK_RULE.baseTotal}種類選んでください（現在 ${f + v}種類）`);
+  if (codes.length !== FRUIT_VEG_TOTAL) {
+    errors.push(`フルーツ・野菜はあわせて${FRUIT_VEG_TOTAL}種類選んでください（現在 ${codes.length}種類）`);
   }
   return { ok: errors.length === 0, errors };
 }
 
-/** 3種類目フルーツの追加料金合計（3種類選ばれている場合のみ、3番目の1種に対して加算）。 */
-export function calcThirdFruitSurcharge(fruits: string[]): number {
-  if (fruits.length < 3) return 0;
-  const third = fruits[2];
-  return THIRD_FRUIT_SURCHARGE[third] ?? 0;
+/* ===== プラン共通: ソース選択 ===== */
+
+export function validateSauceSelection(codes: string[]): ValidationResult {
+  const errors: string[] = [];
+  if (codes.length !== 1) {
+    errors.push('ソースを1つ選んでください');
+  }
+  return { ok: errors.length === 0, errors };
 }
