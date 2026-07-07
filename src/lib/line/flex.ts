@@ -1,5 +1,6 @@
 /** 通知用 Flex Message の組み立て（日時/人数/内容/番号/合計/確認URL/キャンセルURL）。 */
 import { env } from '@/lib/config';
+import { formatOrderSummaryText, type OrderItemSnapshot } from '@/lib/order-format';
 
 export function reservationFlex(p: {
   code: string;
@@ -35,8 +36,10 @@ export function takeoutFlex(p: {
   pickup: string;
   total: number;
   token: string;
+  items: OrderItemSnapshot[];
 }) {
   const url = `${env.appUrl}/booking/${p.token}`;
+  const summary = formatOrderSummaryText(p.items);
   return {
     type: 'flex',
     altText: `ご注文を承りました（${p.code}）`,
@@ -48,7 +51,9 @@ export function takeoutFlex(p: {
           { type: 'text', text: 'テイクアウトご注文ありがとうございます', weight: 'bold', size: 'md', color: '#3B2A20', wrap: true },
           { type: 'text', text: `注文番号: ${p.code}`, size: 'sm', color: '#5A463A' },
           { type: 'separator' },
-          kv('受取', p.pickup), kv('合計', `¥${p.total.toLocaleString()}（店舗支払い）`),
+          kv('受取', p.pickup),
+          ...(summary ? [kv('ご注文', summary)] : []),
+          kv('合計', `¥${p.total.toLocaleString()}（店舗支払い）`),
         ],
       },
       footer: {

@@ -1,6 +1,7 @@
 /** 管理画面用データ取得（開発モックは固定サンプル）。 */
 import { useMockData } from '@/lib/config';
 import { createSupabaseServer } from '@/lib/supabase/server';
+import type { OrderItemSnapshot } from '@/lib/order-format';
 
 export function todayJst(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(new Date());
@@ -48,16 +49,43 @@ export async function loadReservationsForDate(date: string = todayJst()): Promis
   return (data ?? []) as ReservationRow[];
 }
 
-export async function loadTodayOrders() {
+export interface TakeoutOrderRow {
+  id: string;
+  order_code: string;
+  pickup_at: string;
+  total: number;
+  status: string;
+  customer_name: string;
+  phone: string;
+  items: OrderItemSnapshot[];
+}
+
+export async function loadTodayOrders(): Promise<TakeoutOrderRow[]> {
   const date = todayJst();
   if (useMockData) {
     return [
-      { id: 'o1', order_code: 'T-CCCC-3333', pickup_at: `${date}T05:00:00Z`, total: 2695, status: 'received', customer_name: '鈴木一郎', phone: '09055556666' },
+      {
+        id: 'o1', order_code: 'T-CCCC-3333', pickup_at: `${date}T05:00:00Z`, total: 2695, status: 'received',
+        customer_name: '鈴木一郎', phone: '09055556666',
+        items: [
+          { item_name: 'プランA', unit_price: 1320, options_delta: 250, quantity: 1,
+            selections: { labels: { mains: ['サーモン', 'イクラ'], subs: ['トマト', '枝豆', 'コーン'], sauce: ['スタンダード（韓国風）'] } } },
+          { item_name: 'ならポケドリンク', unit_price: 850, options_delta: 80, quantity: 1,
+            selections: { labels: { fruitVeg: ['マンゴー', 'いちご', 'パイン(特選)'] } } },
+        ],
+      },
     ];
   }
   const sb = createSupabaseServer();
-  const { data } = await sb.from('takeout_orders').select('*').eq('service_date', date).order('pickup_at');
-  return data ?? [];
+  const { data } = await sb
+    .from('takeout_orders')
+    .select('id,order_code,pickup_at,total,status,customer_name,phone,takeout_order_items(item_name,unit_price,options_delta,quantity,selections)')
+    .eq('service_date', date)
+    .order('pickup_at');
+  return (data ?? []).map((o) => {
+    const { takeout_order_items, ...rest } = o;
+    return { ...rest, items: (takeout_order_items ?? []) as OrderItemSnapshot[] };
+  });
 }
 
 export interface MenuAdminItem {

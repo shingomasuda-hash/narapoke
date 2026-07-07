@@ -12,6 +12,7 @@ import { loadSettings } from '@/lib/settings';
 import { loadCatalog, resolveAddon } from '@/lib/catalog';
 import { validatePlanSelection, validateFruitVegSelection, validateSauceSelection, calcSubExcessFee, subExcessCount } from '@/lib/menu-rules';
 import { calcOrderTotals, type PriceLine } from '@/lib/pricing';
+import { formatOrderSummaryText, type OrderItemSnapshot } from '@/lib/order-format';
 import { parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows } from '@/lib/time';
 import { generateOrderCode, generateCancelToken, hashToken } from '@/lib/codes';
 import { normalizePhone, isValidJpPhone } from '@/lib/phone';
@@ -97,16 +98,20 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
       if (!v.ok) return { ok: false, errorCode: 'INVALID', message: v.errors[0] };
     }
 
-    // 選択された全コードの追加料金を合算（売切確認込み）。
+    // 選択された全コードの追加料金を合算（売切確認込み）+ 表示名を解決（通知・管理画面用）。
     // メイン/選択サブは menu_items、それ以外は menu_options に由来するため
     // resolveAddon() が両テーブルから解決する（テーブルの違いによる加算漏れを防ぐ）。
-    for (const codes of Object.values(sel)) {
+    const optionLabels: Record<string, string[]> = {};
+    for (const [groupKey, codes] of Object.entries(sel)) {
+      const names: string[] = [];
       for (const code of codes) {
         const resolved = resolveAddon(code, items, options);
-        if (!resolved) continue;
+        if (!resolved) { names.push(code); continue; }
         if (resolved.soldOut) return { ok: false, errorCode: 'SOLD_OUT', message: `「${resolved.name}」は売り切れです。` };
         optionsDelta += resolved.extraPrice;
+        names.push(resolved.name);
       }
+      if (names.length > 0) optionLabels[groupKey] = names;
     }
 
     // セット割（ポケ + 通常ドリンク同時注文時など）: 明示フラグで適用
@@ -114,7 +119,7 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
       optionsDelta += item.setDiscount;
     }
 
-    const snapshotSelections: Record<string, unknown> = { ...sel };
+    const snapshotSelections: Record<string, unknown> = { ...sel, labels: optionLabels };
     if (excessCount > 0) {
       snapshotSelections.subExcessCount = excessCount;
       snapshotSelections.subExcessFee = excessFee;
@@ -172,17 +177,22 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
     }
     const row = data as { id: string; order_code: string };
     const pickupLabel = `${input.pickupDate} ${input.pickupTime}`;
+    const orderItems = itemSnapshots as unknown as OrderItemSnapshot[];
     if (lineUserId) {
       await notify({
         to: lineUserId,
-        messages: [takeoutFlex({ code: row.order_code, pickup: pickupLabel, total: totals.total, token })],
+        messages: [takeoutFlex({ code: row.order_code, pickup: pickupLabel, total: totals.total, token, items: orderItems })],
         targetType: 'takeout', targetId: row.id, kind: 'created',
       });
     }
     if (env.lineStaffDestinationId) {
+      const summary = formatOrderSummaryText(orderItems);
       await notify({
         to: env.lineStaffDestinationId,
-        messages: [{ type: 'text', text: `【新規テイクアウト】${pickupLabel} 合計¥${totals.total.toLocaleString()} ${input.customerName}様 (${row.order_code})` }],
+        messages: [{
+          type: 'text',
+          text: `【新規テイクアウト】${pickupLabel} 合計¥${totals.total.toLocaleString()} ${input.customerName}様 (${row.order_code})\nご注文:\n${summary}`,
+        }],
         targetType: 'takeout', targetId: row.id, kind: 'staff_created',
       });
     }
