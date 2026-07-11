@@ -8,6 +8,7 @@ import { headers } from 'next/headers';
 import { createSupabaseServer } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { checkLoginLock, recordLoginFailure, recordLoginSuccess } from '@/lib/login-guard';
+import { env } from '@/lib/config';
 
 export interface SignInResult {
   ok: boolean;
@@ -39,4 +40,30 @@ export async function signInAdminAction(email: string, password: string): Promis
   const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
   const needsMfa = Boolean(aal && aal.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel);
   return { ok: true, needsMfa };
+}
+
+export interface RequestPasswordResetResult {
+  ok: boolean;
+  message?: string;
+}
+
+/**
+ * パスワードリセットメール送信。メールアドレスの存在有無を推測されないよう、
+ * 成功・失敗に関わらず同じ成功メッセージを返す（レート制限超過時のみエラーを返す）。
+ */
+export async function requestPasswordResetAction(email: string): Promise<RequestPasswordResetResult> {
+  const ip = headers().get('x-forwarded-for') ?? 'local';
+  if (!rateLimit(`admin-reset-ip:${ip}`, 5, 15 * 60_000).ok) {
+    return { ok: false, message: 'リクエストが多すぎます。しばらくしてから再度お試しください。' };
+  }
+  const emailKey = email.trim().toLowerCase();
+  if (!rateLimit(`admin-reset-email:${emailKey}`, 3, 15 * 60_000).ok) {
+    return { ok: false, message: 'リクエストが多すぎます。しばらくしてから再度お試しください。' };
+  }
+
+  const sb = createSupabaseServer();
+  await sb.auth.resetPasswordForEmail(emailKey, {
+    redirectTo: `${env.appUrl}/auth/callback?next=/admin/reset-password`,
+  });
+  return { ok: true, message: '該当のメールアドレスが登録されている場合、パスワード再設定メールを送信しました。' };
 }

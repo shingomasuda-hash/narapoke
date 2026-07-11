@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isSupabaseConfigured } from '@/lib/config';
-import { signInAdminAction } from '@/actions/auth';
+import { signInAdminAction, requestPasswordResetAction } from '@/actions/auth';
 
 export function LoginForm() {
   const router = useRouter();
@@ -10,6 +10,18 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'login' | 'reset'>('login');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
+
+  async function submitReset() {
+    setResetMsg('');
+    setResetBusy(true);
+    const result = await requestPasswordResetAction(resetEmail);
+    setResetBusy(false);
+    setResetMsg(result.message ?? '');
+  }
 
   async function submit() {
     setErr(''); setBusy(true);
@@ -31,6 +43,21 @@ export function LoginForm() {
     router.refresh();
   }
 
+  if (mode === 'reset') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="re" className="field-label">メールアドレス</label>
+          <input id="re" type="email" className="field-input" value={resetEmail} onChange={(ev) => setResetEmail(ev.target.value)} autoComplete="email" />
+        </div>
+        {resetMsg && <p className="text-sm font-semibold text-sumi" role="status">{resetMsg}</p>}
+        <button onClick={submitReset} disabled={resetBusy} className="btn-primary">{resetBusy ? '…' : 'リセットメールを送信'}</button>
+        <button type="button" onClick={() => { setMode('login'); setResetMsg(''); }} className="btn-outline">ログインに戻る</button>
+        {!isSupabaseConfigured && <p className="text-center text-xs text-sumi-soft">（開発モード: メールは送信されません）</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -43,6 +70,7 @@ export function LoginForm() {
       </div>
       {err && <p className="error-text" role="alert">{err}</p>}
       <button onClick={submit} disabled={busy} className="btn-primary">{busy ? '…' : 'ログイン'}</button>
+      <button type="button" onClick={() => setMode('reset')} className="w-full text-center text-sm font-semibold text-sumi-soft underline">パスワードをお忘れの方</button>
       {!isSupabaseConfigured && <p className="text-center text-xs text-sumi-soft">（開発モード: そのまま管理画面を表示します）</p>}
     </div>
   );
