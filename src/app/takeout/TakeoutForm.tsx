@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { StepHeader } from '@/components/StepHeader';
 import { initLiff } from '@/lib/liff';
 import { createTakeoutAction } from '@/actions/takeout';
-import { generateIdempotencyKeyClient, jpDateLabel, nextDates } from '@/lib/client-util';
+import { generateIdempotencyKeyClient, isValidEmail, jpDateLabel, nextDates } from '@/lib/client-util';
 
 interface MItem { code: string; name: string; price: number; soldOut: boolean; category: string; meta?: { mainCount?: number; subCount?: number } }
 interface Opt { code: string; name: string; extra: number }
@@ -66,6 +66,7 @@ export function TakeoutForm() {
     if (cart.length === 0) return setError('商品を選択してください。');
     if (!time) return setError('受取時間を選択してください。');
     if (!name.trim() || !phone.trim()) return setError('お名前と電話番号は必須です。');
+    if (!isValidEmail(email)) return setError('メールアドレスを正しく入力してください。');
     if (!agreed) return setError('プライバシーポリシーへの同意が必要です。');
     setSubmitting(true);
     const result = await createTakeoutAction({
@@ -190,8 +191,8 @@ export function TakeoutForm() {
               <input id="tn" className="field-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></div>
             <div><label htmlFor="tp" className="field-label">電話番号 <span className="text-shu">必須</span></label>
               <input id="tp" type="tel" inputMode="tel" className="field-input" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></div>
-            <div><label htmlFor="te" className="field-label">メール（任意）</label>
-              <input id="te" type="email" className="field-input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div><label htmlFor="te" className="field-label">メールアドレス <span className="text-shu">必須</span></label>
+              <input id="te" type="email" className="field-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
             <div><label htmlFor="ta" className="field-label">アレルギー等（任意）</label>
               <textarea id="ta" className="field-input py-2" rows={2} value={allergy} onChange={(e) => setAllergy(e.target.value)} /></div>
             <div><label htmlFor="tno" className="field-label">備考（任意）</label>

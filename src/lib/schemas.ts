@@ -34,7 +34,7 @@ export const takeoutInputSchema = z.object({
   items: z.array(takeoutItemSchema).min(1, '商品を1つ以上選択してください'),
   customerName: z.string().min(1).max(50),
   phone: z.string().min(1),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().min(1, 'メールアドレスを入力してください').email('メールアドレスの形式が正しくありません'),
   note: z.string().max(500).optional().or(z.literal('')),
   allergy: z.string().max(500).optional().or(z.literal('')),
   lineIdToken: z.string().optional(),
