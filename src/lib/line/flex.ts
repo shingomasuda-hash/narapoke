@@ -93,6 +93,34 @@ export function staffReservationNotice(p: {
   ].join('\n');
 }
 
+/** スタッフグループ宛て「新規テイクアウト」通知の文面。予約側(staffReservationNotice)とラベル・順序を揃える。 */
+export function staffTakeoutNotice(p: {
+  createdAt: Date;
+  code: string;
+  pickup: string;
+  total: number;
+  customerName: string;
+  phone: string;
+  email: string;
+  summary: string;
+}): string {
+  const executedAt = p.createdAt.toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+  return [
+    '【新規テイクアウト】',
+    `注文実施日時：${executedAt}`,
+    `受取日時：${p.pickup}`,
+    `合計：¥${p.total.toLocaleString()}（店舗支払い）`,
+    `名前：${p.customerName}様`,
+    `電話番号：${p.phone}`,
+    `メアド：${p.email}`,
+    `注文番号：${p.code}`,
+    'ご注文:',
+    p.summary,
+  ].join('\n');
+}
+
 function kv(k: string, v: string) {
   return {
     type: 'box', layout: 'baseline', spacing: 'sm',

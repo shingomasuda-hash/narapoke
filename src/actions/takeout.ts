@@ -18,7 +18,7 @@ import { generateOrderCode, generateCancelToken, hashToken } from '@/lib/codes';
 import { normalizePhone, isValidJpPhone } from '@/lib/phone';
 import { verifyLineIdToken } from '@/lib/line/verify';
 import { notify } from '@/lib/line/client';
-import { takeoutFlex } from '@/lib/line/flex';
+import { takeoutFlex, staffTakeoutNotice } from '@/lib/line/flex';
 import { useMockData, env } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -191,7 +191,10 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
         to: env.lineStaffDestinationId,
         messages: [{
           type: 'text',
-          text: `【新規テイクアウト】${pickupLabel} 合計¥${totals.total.toLocaleString()} ${input.customerName}様 (${row.order_code})\nご注文:\n${summary}`,
+          text: staffTakeoutNotice({
+            createdAt: new Date(), code: row.order_code, pickup: pickupLabel, total: totals.total,
+            customerName: input.customerName, phone, email: input.email, summary,
+          }),
         }],
         targetType: 'takeout', targetId: row.id, kind: 'staff_created',
       });
