@@ -298,16 +298,6 @@ function CustomizeSheet({ item, menu, onClose, onAdd }: {
                   className={`chip ${selMains.includes(m.code) ? 'chip-on' : ''}`}>{m.name}{m.extra > 0 ? `+${m.extra}` : ''}</button>
               ))}
             </div>
-            <p className="field-label">サブ（{needSub}種類以上、超過分は1つ+{SUB_EXCESS_FEE_PER_ITEM}円） {selSubs.length}/{needSub}以上</p>
-            <div className="mb-1 flex flex-wrap gap-2">
-              {menu.subs.map((s) => (
-                <button key={s.code} onClick={() => toggle(selSubs, setSelSubs, s.code, menu.subs.length)}
-                  className={`chip ${selSubs.includes(s.code) ? 'chip-on' : ''}`}>{s.name}{s.extra > 0 ? `+${s.extra}` : ''}</button>
-              ))}
-            </div>
-            {subExcessCount > 0 && (
-              <p className="mb-4 text-sm font-semibold text-shu">サブ追加分 ×{subExcessCount}（+¥{subExcessFee.toLocaleString()}）</p>
-            )}
             {fixedSubs.length > 0 && (
               <>
                 <p className="field-label">固定サブ（基本で入っています）</p>
@@ -321,6 +311,16 @@ function CustomizeSheet({ item, menu, onClose, onAdd }: {
                   ))}
                 </div>
               </>
+            )}
+            <p className="field-label">サブ（{needSub}種類以上、超過分は1つ+{SUB_EXCESS_FEE_PER_ITEM}円） {selSubs.length}/{needSub}以上</p>
+            <div className="mb-1 flex flex-wrap gap-2">
+              {menu.subs.map((s) => (
+                <button key={s.code} onClick={() => toggle(selSubs, setSelSubs, s.code, menu.subs.length)}
+                  className={`chip ${selSubs.includes(s.code) ? 'chip-on' : ''}`}>{s.name}{s.extra > 0 ? `+${s.extra}` : ''}</button>
+              ))}
+            </div>
+            {subExcessCount > 0 && (
+              <p className="mb-4 text-sm font-semibold text-shu">サブ追加分 ×{subExcessCount}（+¥{subExcessFee.toLocaleString()}）</p>
             )}
             <p className="field-label">ソース選択（必須）</p>
             <div className="mb-4 flex flex-wrap gap-2">
