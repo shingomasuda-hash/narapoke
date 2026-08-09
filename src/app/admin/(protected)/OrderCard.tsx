@@ -16,6 +16,8 @@ export function OrderCard({ o }: { o: TakeoutOrderRow }) {
       <p className="text-xs text-sumi-soft">{o.order_code}</p>
       <p className="text-sm"><a href={`tel:${o.phone}`} className="text-shu underline">{o.phone}</a></p>
       <p className="text-sm font-semibold">合計 ¥{o.total.toLocaleString()}（店舗支払い）</p>
+      {o.allergy && <p className="text-xs text-shu">アレルギー: {o.allergy}</p>}
+      {o.note && <p className="text-xs text-sumi-soft">備考: {o.note}</p>}
       {open && (
         <div className="space-y-2 border-t border-sumi/10 pt-2 text-sm">
           {o.items.map((it, i) => {

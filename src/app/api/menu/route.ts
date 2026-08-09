@@ -43,6 +43,8 @@ const MOCK = {
     { code: 'subc_tomato', name: 'トマト', extra: 0 }, { code: 'subc_edamame', name: '枝豆', extra: 0 },
     { code: 'subc_tuna', name: 'ツナ', extra: 0 }, { code: 'subc_avocado', name: 'アボカド', extra: 0 },
     { code: 'subc_corn', name: 'コーン', extra: 0 }, { code: 'subc_kannori', name: '韓国海苔', extra: 0 },
+    { code: 'subf_onion', name: '赤たまねぎ', extra: 0 }, { code: 'subf_carrot', name: '人参', extra: 0 },
+    { code: 'subf_cucumber', name: 'きゅうり', extra: 0 },
   ],
   fruitVeg: [
     { code: 'mango', name: 'マンゴー', extra: 0 }, { code: 'ichigo', name: 'いちご', extra: 0 },

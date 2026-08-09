@@ -157,7 +157,7 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
           text: staffReservationNotice({
             createdAt: new Date(), when: whenLabel,
             adultCount: input.adultCount, childCount: input.childCount ?? 0, petCount: input.petCount ?? 0,
-            customerName: input.customerName, phone, email: input.email,
+            customerName: input.customerName, phone, email: input.email, note: input.note || null,
           }),
         }],
         targetType: 'reservation', targetId: row.id, kind: 'staff_created',
