@@ -11,6 +11,8 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { loadSettings } from '@/lib/settings';
 import { notify } from '@/lib/line/client';
 import { staffReservationCancelNotice, staffTakeoutCancelNotice } from '@/lib/line/flex';
+import { sendEmail } from '@/lib/email/client';
+import { reservationCancelledEmail, takeoutCancelledEmail } from '@/lib/email/templates';
 import { rateLimit } from '@/lib/rate-limit';
 
 function checkBookingRateLimit(): boolean {
@@ -71,14 +73,18 @@ export async function cancelBookingAction(rawToken: string): Promise<{ ok: boole
   const sb = createSupabaseAdmin();
 
   const { data: r } = await sb.from('reservations')
-    .select('id,line_user_id,status,reservation_code,service_date,start_at,adult_count,child_count,pet_count,customer_name,phone,note')
+    .select('id,line_user_id,status,reservation_code,service_date,start_at,adult_count,child_count,pet_count,customer_name,phone,email,note')
     .eq('cancel_token_hash', hash).maybeSingle();
   if (r) {
     if (r.status !== 'confirmed') return { ok: false, message: 'この予約はキャンセルできません。' };
     await sb.from('reservations').update({ status: 'cancelled' }).eq('id', r.id);
+    const when = `${r.service_date} ${new Date(r.start_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })}`;
     if (r.line_user_id) await notify({ to: r.line_user_id, messages: [{ type: 'text', text: `ご予約 ${r.reservation_code} をキャンセルしました。` }], targetType: 'reservation', targetId: r.id, kind: 'cancelled' });
+    if (r.email) {
+      const mail = reservationCancelledEmail({ customerName: r.customer_name, when, code: r.reservation_code });
+      await sendEmail({ to: r.email, ...mail, targetType: 'reservation', targetId: r.id, kind: 'email_cancelled' });
+    }
     if (env.lineStaffDestinationId) {
-      const when = `${r.service_date} ${new Date(r.start_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })}`;
       await notify({
         to: env.lineStaffDestinationId,
         messages: [{
@@ -96,17 +102,21 @@ export async function cancelBookingAction(rawToken: string): Promise<{ ok: boole
   }
 
   const { data: o } = await sb.from('takeout_orders')
-    .select('id,line_user_id,status,order_code,pickup_at,total,customer_name,phone,note')
+    .select('id,line_user_id,status,order_code,pickup_at,total,customer_name,phone,email,note')
     .eq('cancel_token_hash', hash).maybeSingle();
   if (o) {
     const settings = await loadSettings(); void settings;
     if (o.status !== 'received') return { ok: false, message: '調理開始後のためキャンセルできません。店舗へご連絡ください。' };
     await sb.from('takeout_orders').update({ status: 'cancelled' }).eq('id', o.id);
+    const pickup = new Date(o.pickup_at).toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
     if (o.line_user_id) await notify({ to: o.line_user_id, messages: [{ type: 'text', text: `ご注文 ${o.order_code} をキャンセルしました。` }], targetType: 'takeout', targetId: o.id, kind: 'cancelled' });
+    if (o.email) {
+      const mail = takeoutCancelledEmail({ customerName: o.customer_name, pickup, code: o.order_code });
+      await sendEmail({ to: o.email, ...mail, targetType: 'takeout', targetId: o.id, kind: 'email_cancelled' });
+    }
     if (env.lineStaffDestinationId) {
-      const pickup = new Date(o.pickup_at).toLocaleString('ja-JP', {
-        timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-      });
       await notify({
         to: env.lineStaffDestinationId,
         messages: [{

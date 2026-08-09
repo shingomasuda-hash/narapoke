@@ -55,7 +55,8 @@ export async function sendEmail(params: {
     await sb.from('notification_logs').insert({
       target_type: targetType,
       target_id: targetId,
-      channel: 'email',
+      // モック送信（RESEND_API_KEY未設定）は 'mock' として記録し、実送信と区別できるようにする
+      channel: emailSendEnabled ? 'email' : 'mock',
       kind,
       recipient: to,
       status: result.ok ? 'sent' : 'failed',
