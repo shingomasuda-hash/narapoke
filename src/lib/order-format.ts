@@ -8,6 +8,7 @@
 export const SELECTION_GROUP_LABELS: Record<string, string> = {
   mains: 'メイン',
   subs: 'サブ',
+  removedSubs: '固定サブ抜き',
   sauce: 'ソース',
   fruitVeg: 'フルーツ・野菜',
   toppings: 'トッピング',

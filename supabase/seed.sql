@@ -19,6 +19,7 @@ on conflict do nothing;
 insert into menu_categories (code, name, sort_order) values
   ('plan',       'ポケプラン',       10),
   ('main',       'メイン',           20),
+  ('sub_fixed',  '固定サブ',         30),
   ('sub_choice', '選択サブ',         40),
   ('addon',      '追加オプション',   50),
   ('poke_drink', 'ならポケドリンク', 60),
@@ -52,7 +53,16 @@ from (values
 cross join (select id from menu_categories where code='main') c
 on conflict (code) do nothing;
 
--- ---- 選択サブ（韓国海苔の追加料金は廃止。旧固定サブも選択可能） --
+-- ---- 固定サブ（プランに基本付帯。不要なものだけ注文時に外せる） --
+insert into menu_items (category_id, code, name, price, sort_order)
+select c.id, x.code, x.name, 0, x.sort
+from (values
+  ('subf_onion','赤たまねぎ',1),('subf_carrot','人参',2),('subf_cucumber','きゅうり',3)
+) as x(code,name,sort)
+cross join (select id from menu_categories where code='sub_fixed') c
+on conflict (code) do nothing;
+
+-- ---- 選択サブ（韓国海苔の追加料金は廃止） ------------------------
 insert into menu_items (category_id, code, name, price, sort_order)
 select c.id, x.code, x.name, x.price, x.sort
 from (values
@@ -60,8 +70,7 @@ from (values
   ('subc_nuts','ナッツ',0,4),('subc_lettuce','サニーレタス',0,5),('subc_friedonion','フライドオニオン',0,6),
   ('subc_creamcheese','クリームチーズ',0,7),('subc_gomawakame','ごまわかめ',0,8),('subc_paprika','パプリカ',0,9),
   ('subc_corn','コーン',0,10),('subc_tobikko','とびっこ',0,11),('subc_avocado','アボカド',0,12),
-  ('subc_takuan','たくあん',0,13),('subc_kannori','韓国海苔',0,14),
-  ('subf_onion','赤たまねぎ',0,15),('subf_carrot','人参',0,16),('subf_cucumber','きゅうり',0,17)
+  ('subc_takuan','たくあん',0,13),('subc_kannori','韓国海苔',0,14)
 ) as x(code,name,price,sort)
 cross join (select id from menu_categories where code='sub_choice') c
 on conflict (code) do nothing;
