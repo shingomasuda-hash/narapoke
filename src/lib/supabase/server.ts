@@ -7,6 +7,8 @@ import { env } from '@/lib/config';
 export function createSupabaseServer() {
   const cookieStore = cookies();
   return createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
+    // 管理画面も常に最新のDB状態を表示する（Next.js のデータキャッシュを無効化）。
+    global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: 'no-store' }) },
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll: (list: { name: string; value: string; options: CookieOptions }[]) => {

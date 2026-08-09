@@ -12,5 +12,8 @@ export function createSupabaseAdmin() {
   }
   return createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // Next.js が fetch 結果をデータキャッシュに保存すると、DB更新後も古いメニュー等を
+    // 返し続けることがあるため、Supabase への問い合わせは常にキャッシュを無効化する。
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
   });
 }
