@@ -17,7 +17,7 @@ interface CartLine {
 }
 interface MenuData {
   categories: { code: string; name: string }[]; items: MItem[];
-  mains: Opt[]; subs: Opt[]; fruitVeg: Opt[]; toppings: Opt[]; planSauce: Opt[]; planAddon: Opt[];
+  mains: Opt[]; subs: Opt[]; fixedSubs?: Opt[]; fruitVeg: Opt[]; toppings: Opt[]; planSauce: Opt[]; planAddon: Opt[];
 }
 
 const SUB_EXCESS_FEE_PER_ITEM = 100;
@@ -232,8 +232,10 @@ function CustomizeSheet({ item, menu, onClose, onAdd }: {
   onClose: () => void; onAdd: (l: CartLine) => void;
 }) {
   const isPoke = item.code === 'poke_drink_single';
+  const fixedSubs = menu.fixedSubs ?? [];
   const [selMains, setSelMains] = useState<string[]>([]);
   const [selSubs, setSelSubs] = useState<string[]>([]);
+  const [selRemovedSubs, setSelRemovedSubs] = useState<string[]>([]);
   const [selSauce, setSelSauce] = useState<string>('');
   const [selAddons, setSelAddons] = useState<string[]>([]);
   const [selFruitVeg, setSelFruitVeg] = useState<string[]>([]);
@@ -261,13 +263,18 @@ function CustomizeSheet({ item, menu, onClose, onAdd }: {
       selections.mains = selMains;
       selections.subs = selSubs;
       selections.sauce = [selSauce];
+      if (selRemovedSubs.length > 0) selections.removedSubs = selRemovedSubs;
       if (selAddons.length > 0) selections.planAddon = selAddons;
       delta += menu.mains.filter((m) => selMains.includes(m.code)).reduce((a, m) => a + m.extra, 0);
       delta += menu.subs.filter((s) => selSubs.includes(s.code)).reduce((a, s) => a + s.extra, 0);
       delta += menu.planSauce.filter((s) => selSauce === s.code).reduce((a, s) => a + s.extra, 0);
       delta += menu.planAddon.filter((a) => selAddons.includes(a.code)).reduce((a, x) => a + x.extra, 0);
       delta += subExcessFee;
-      if (subExcessCount > 0) noteText = `サブ追加分 ×${subExcessCount}（+¥${subExcessFee.toLocaleString()}）`;
+      const noteParts: string[] = [];
+      if (subExcessCount > 0) noteParts.push(`サブ追加分 ×${subExcessCount}（+¥${subExcessFee.toLocaleString()}）`);
+      const removedNames = fixedSubs.filter((f) => selRemovedSubs.includes(f.code)).map((f) => f.name);
+      if (removedNames.length > 0) noteParts.push(`${removedNames.join('・')} 抜き`);
+      if (noteParts.length > 0) noteText = noteParts.join(' / ');
     } else {
       if (selFruitVeg.length !== 3) return setErr('フルーツ・野菜をあわせて3種類選んでください');
       selections.fruitVeg = selFruitVeg;
@@ -300,6 +307,20 @@ function CustomizeSheet({ item, menu, onClose, onAdd }: {
             </div>
             {subExcessCount > 0 && (
               <p className="mb-4 text-sm font-semibold text-shu">サブ追加分 ×{subExcessCount}（+¥{subExcessFee.toLocaleString()}）</p>
+            )}
+            {fixedSubs.length > 0 && (
+              <>
+                <p className="field-label">固定サブ（基本で入っています）</p>
+                <p className="mb-2 text-xs text-sumi-soft">不要なものだけタップして外してください</p>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {fixedSubs.map((f) => (
+                    <button key={f.code} onClick={() => toggle(selRemovedSubs, setSelRemovedSubs, f.code, fixedSubs.length)}
+                      className={`chip ${selRemovedSubs.includes(f.code) ? 'chip-on line-through' : ''}`}>
+                      {f.name}{selRemovedSubs.includes(f.code) ? ' 抜き' : ''}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
             <p className="field-label">ソース選択（必須）</p>
             <div className="mb-4 flex flex-wrap gap-2">

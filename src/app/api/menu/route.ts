@@ -1,6 +1,6 @@
 /** 公開メニュー取得（税込価格・オプション）。非個人情報。 */
 import { NextResponse } from 'next/server';
-import { useMockData, env } from '@/lib/config';
+import { useMockData } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -37,12 +37,14 @@ const MOCK = {
   mains: [
     { code: 'main_salmon', name: 'サーモン', extra: 0 }, { code: 'main_tako', name: 'タコ', extra: 0 },
     { code: 'main_maguro', name: 'マグロ', extra: 0 }, { code: 'main_negitoro', name: 'ネギトロ', extra: 0 },
-    { code: 'main_ikura', name: 'イクラ', extra: 250 }, { code: 'main_ebi', name: 'エビ', extra: 250 },
+    { code: 'main_ikura', name: 'イクラ', extra: 250 },
   ],
   subs: [
     { code: 'subc_tomato', name: 'トマト', extra: 0 }, { code: 'subc_edamame', name: '枝豆', extra: 0 },
     { code: 'subc_tuna', name: 'ツナ', extra: 0 }, { code: 'subc_avocado', name: 'アボカド', extra: 0 },
     { code: 'subc_corn', name: 'コーン', extra: 0 }, { code: 'subc_kannori', name: '韓国海苔', extra: 0 },
+  ],
+  fixedSubs: [
     { code: 'subf_onion', name: '赤たまねぎ', extra: 0 }, { code: 'subf_carrot', name: '人参', extra: 0 },
     { code: 'subf_cucumber', name: 'きゅうり', extra: 0 },
   ],
@@ -71,17 +73,13 @@ const MOCK = {
 };
 
 export async function GET() {
-  // 一時的なデバッグ情報: どのSupabaseプロジェクトを参照しているかを応答に含める（接続先URLは NEXT_PUBLIC で元々公開情報）。
-  const source = env.supabaseUrl ? new URL(env.supabaseUrl).host : 'mock (Supabase未設定)';
-  if (useMockData) return NextResponse.json({ source, ...MOCK });
+  if (useMockData) return NextResponse.json(MOCK);
   try {
     const sb = createSupabaseAdmin();
-    const [{ data: cats }, { data: items }, { data: opts }, subfProbe] = await Promise.all([
+    const [{ data: cats }, { data: items }, { data: opts }] = await Promise.all([
       sb.from('menu_categories').select('code,name,sort_order').eq('is_published', true).order('sort_order'),
       sb.from('menu_items').select('code,name,price,is_sold_out,meta,sort_order,menu_categories(code)').eq('is_published', true).order('sort_order'),
       sb.from('menu_options').select('code,name,extra_price,sort_order,is_published,menu_option_groups(code)').eq('is_published', true).order('sort_order'),
-      // 一時デバッグ: 旧固定サブ3品目がこのDBでどの状態かを応答に含める（原因特定後に削除）
-      sb.from('menu_items').select('code,name,is_published,sort_order,menu_categories(code)').in('code', ['subf_onion', 'subf_carrot', 'subf_cucumber']),
     ]);
     const mapped = (items ?? []).map((i) => ({
       code: i.code, name: i.name, price: i.price, soldOut: i.is_sold_out,
@@ -99,22 +97,18 @@ export async function GET() {
     }
     // 顧客向けカタログ: 単品として並べるのは plan / poke_drink / drink / sweets のみ。
     const displayCats = new Set(['plan', 'poke_drink', 'drink', 'sweets']);
-    const subs = mapped.filter((i) => i.category === 'sub_choice').map((i) => ({ code: i.code, name: i.name, extra: i.price }));
     return NextResponse.json({
-      source,
-      debugSubf: subfProbe.error ? `error: ${subfProbe.error.message}` : subfProbe.data,
-      debugSubsCount: subs.length,
-      debugMappedSubf: mapped.filter((i) => i.code.startsWith('subf')).map((i) => ({ code: i.code, category: i.category })),
       categories: (cats ?? []).map((c) => ({ code: c.code, name: c.name })).filter((c) => displayCats.has(c.code)),
       items: mapped.filter((i) => displayCats.has(i.category)),
       mains: mapped.filter((i) => i.category === 'main').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
-      subs,
+      subs: mapped.filter((i) => i.category === 'sub_choice').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
+      fixedSubs: mapped.filter((i) => i.category === 'sub_fixed').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
       fruitVeg: byGroup.get('fruit_veg') ?? [],
       toppings: byGroup.get('toppings') ?? [],
       planSauce: byGroup.get('plan_sauce') ?? [],
       planAddon: byGroup.get('plan_addon') ?? [],
     });
   } catch {
-    return NextResponse.json({ source: `mock-fallback (${source})`, ...MOCK });
+    return NextResponse.json(MOCK);
   }
 }
