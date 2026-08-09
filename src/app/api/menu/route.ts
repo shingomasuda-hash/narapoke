@@ -76,10 +76,12 @@ export async function GET() {
   if (useMockData) return NextResponse.json({ source, ...MOCK });
   try {
     const sb = createSupabaseAdmin();
-    const [{ data: cats }, { data: items }, { data: opts }] = await Promise.all([
+    const [{ data: cats }, { data: items }, { data: opts }, subfProbe] = await Promise.all([
       sb.from('menu_categories').select('code,name,sort_order').eq('is_published', true).order('sort_order'),
       sb.from('menu_items').select('code,name,price,is_sold_out,meta,sort_order,menu_categories(code)').eq('is_published', true).order('sort_order'),
       sb.from('menu_options').select('code,name,extra_price,sort_order,is_published,menu_option_groups(code)').eq('is_published', true).order('sort_order'),
+      // 一時デバッグ: 旧固定サブ3品目がこのDBでどの状態かを応答に含める（原因特定後に削除）
+      sb.from('menu_items').select('code,name,is_published,sort_order,menu_categories(code)').in('code', ['subf_onion', 'subf_carrot', 'subf_cucumber']),
     ]);
     const mapped = (items ?? []).map((i) => ({
       code: i.code, name: i.name, price: i.price, soldOut: i.is_sold_out,
@@ -99,6 +101,7 @@ export async function GET() {
     const displayCats = new Set(['plan', 'poke_drink', 'drink', 'sweets']);
     return NextResponse.json({
       source,
+      debugSubf: subfProbe.error ? `error: ${subfProbe.error.message}` : subfProbe.data,
       categories: (cats ?? []).map((c) => ({ code: c.code, name: c.name })).filter((c) => displayCats.has(c.code)),
       items: mapped.filter((i) => displayCats.has(i.category)),
       mains: mapped.filter((i) => i.category === 'main').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
