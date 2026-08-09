@@ -99,13 +99,16 @@ export async function GET() {
     }
     // 顧客向けカタログ: 単品として並べるのは plan / poke_drink / drink / sweets のみ。
     const displayCats = new Set(['plan', 'poke_drink', 'drink', 'sweets']);
+    const subs = mapped.filter((i) => i.category === 'sub_choice').map((i) => ({ code: i.code, name: i.name, extra: i.price }));
     return NextResponse.json({
       source,
       debugSubf: subfProbe.error ? `error: ${subfProbe.error.message}` : subfProbe.data,
+      debugSubsCount: subs.length,
+      debugMappedSubf: mapped.filter((i) => i.code.startsWith('subf')).map((i) => ({ code: i.code, category: i.category })),
       categories: (cats ?? []).map((c) => ({ code: c.code, name: c.name })).filter((c) => displayCats.has(c.code)),
       items: mapped.filter((i) => displayCats.has(i.category)),
       mains: mapped.filter((i) => i.category === 'main').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
-      subs: mapped.filter((i) => i.category === 'sub_choice').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
+      subs,
       fruitVeg: byGroup.get('fruit_veg') ?? [],
       toppings: byGroup.get('toppings') ?? [],
       planSauce: byGroup.get('plan_sauce') ?? [],
