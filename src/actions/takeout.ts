@@ -19,6 +19,8 @@ import { normalizePhone, isValidJpPhone } from '@/lib/phone';
 import { verifyLineIdToken } from '@/lib/line/verify';
 import { notify } from '@/lib/line/client';
 import { takeoutFlex, staffTakeoutNotice } from '@/lib/line/flex';
+import { sendEmail } from '@/lib/email/client';
+import { takeoutCreatedEmail } from '@/lib/email/templates';
 import { useMockData, env } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -178,6 +180,7 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
     const row = data as { id: string; order_code: string };
     const pickupLabel = `${input.pickupDate} ${input.pickupTime}`;
     const orderItems = itemSnapshots as unknown as OrderItemSnapshot[];
+    const summary = formatOrderSummaryText(orderItems);
     if (lineUserId) {
       await notify({
         to: lineUserId,
@@ -186,7 +189,6 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
       });
     }
     if (env.lineStaffDestinationId) {
-      const summary = formatOrderSummaryText(orderItems);
       await notify({
         to: env.lineStaffDestinationId,
         messages: [{
@@ -198,6 +200,13 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
         }],
         targetType: 'takeout', targetId: row.id, kind: 'staff_created',
       });
+    }
+    if (input.email) {
+      const mail = takeoutCreatedEmail({
+        customerName: input.customerName, pickup: pickupLabel, code: row.order_code,
+        total: totals.total, summary, token,
+      });
+      await sendEmail({ to: input.email, ...mail, targetType: 'takeout', targetId: row.id, kind: 'email_created' });
     }
     return { ok: true, code: row.order_code, token, totals };
   } catch (e) {

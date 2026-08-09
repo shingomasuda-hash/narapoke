@@ -1,4 +1,4 @@
-/** 予約メールのテンプレート（完了メール／前日確認メール／当日確認メール）。 */
+/** 予約・テイクアウトメールのテンプレート（完了／キャンセル／前日確認／当日確認）。 */
 import { env } from '@/lib/config';
 
 function layout(title: string, bodyLines: string[], token?: string): string {
@@ -21,6 +21,49 @@ export function reservationCreatedEmail(p: { customerName: string; when: string;
       `日時: ${p.when}`,
       `人数: ${p.partySize}名`,
     ], p.token),
+  };
+}
+
+export function reservationCancelledEmail(p: { customerName: string; when: string; code: string }) {
+  return {
+    subject: `【なら和ポケ日和】ご予約をキャンセルしました（${p.code}）`,
+    html: layout('ご予約のキャンセルを承りました', [
+      `${p.customerName}様`,
+      `以下のご予約をキャンセルしました。`,
+      `予約番号: ${p.code}`,
+      `日時: ${p.when}`,
+      '',
+      'またのご利用をお待ちしております。',
+    ]),
+  };
+}
+
+export function takeoutCreatedEmail(p: { customerName: string; pickup: string; code: string; total: number; summary: string; token: string }) {
+  return {
+    subject: `【なら和ポケ日和】ご注文を承りました（${p.code}）`,
+    html: layout('テイクアウトのご注文ありがとうございます', [
+      `${p.customerName}様`,
+      `注文番号: ${p.code}`,
+      `受取日時: ${p.pickup}`,
+      `合計: ¥${p.total.toLocaleString()}（店舗でのお支払い）`,
+      '',
+      'ご注文内容:',
+      ...p.summary.split('\n'),
+    ], p.token),
+  };
+}
+
+export function takeoutCancelledEmail(p: { customerName: string; pickup: string; code: string }) {
+  return {
+    subject: `【なら和ポケ日和】ご注文をキャンセルしました（${p.code}）`,
+    html: layout('ご注文のキャンセルを承りました', [
+      `${p.customerName}様`,
+      `以下のご注文をキャンセルしました。`,
+      `注文番号: ${p.code}`,
+      `受取日時: ${p.pickup}`,
+      '',
+      'またのご利用をお待ちしております。',
+    ]),
   };
 }
 
