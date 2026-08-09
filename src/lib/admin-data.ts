@@ -57,6 +57,8 @@ export interface TakeoutOrderRow {
   status: string;
   customer_name: string;
   phone: string;
+  note?: string | null;
+  allergy?: string | null;
   items: OrderItemSnapshot[];
 }
 
@@ -66,7 +68,7 @@ export async function loadTodayOrders(): Promise<TakeoutOrderRow[]> {
     return [
       {
         id: 'o1', order_code: 'T-CCCC-3333', pickup_at: `${date}T05:00:00Z`, total: 2695, status: 'received',
-        customer_name: '鈴木一郎', phone: '09055556666',
+        customer_name: '鈴木一郎', phone: '09055556666', note: '保冷バッグ持参します', allergy: '',
         items: [
           { item_name: 'プランA', unit_price: 1320, options_delta: 250, quantity: 1,
             selections: { labels: { mains: ['サーモン', 'イクラ'], subs: ['トマト', '枝豆', 'コーン'], sauce: ['スタンダード（韓国風）'] } } },
@@ -79,7 +81,7 @@ export async function loadTodayOrders(): Promise<TakeoutOrderRow[]> {
   const sb = createSupabaseServer();
   const { data } = await sb
     .from('takeout_orders')
-    .select('id,order_code,pickup_at,total,status,customer_name,phone,takeout_order_items(item_name,unit_price,options_delta,quantity,selections)')
+    .select('id,order_code,pickup_at,total,status,customer_name,phone,note,allergy,takeout_order_items(item_name,unit_price,options_delta,quantity,selections)')
     .eq('service_date', date)
     .order('pickup_at');
   return (data ?? []).map((o) => {

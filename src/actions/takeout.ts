@@ -193,7 +193,7 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
           type: 'text',
           text: staffTakeoutNotice({
             createdAt: new Date(), code: row.order_code, pickup: pickupLabel, total: totals.total,
-            customerName: input.customerName, phone, email: input.email, summary,
+            customerName: input.customerName, phone, email: input.email, summary, note: input.note || null,
           }),
         }],
         targetType: 'takeout', targetId: row.id, kind: 'staff_created',

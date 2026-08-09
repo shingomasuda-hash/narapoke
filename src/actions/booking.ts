@@ -6,10 +6,11 @@
 import { headers } from 'next/headers';
 import { hashToken } from '@/lib/codes';
 import { cancelInputSchema } from '@/lib/schemas';
-import { useMockData } from '@/lib/config';
+import { useMockData, env } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { loadSettings } from '@/lib/settings';
 import { notify } from '@/lib/line/client';
+import { staffReservationCancelNotice, staffTakeoutCancelNotice } from '@/lib/line/flex';
 import { rateLimit } from '@/lib/rate-limit';
 
 function checkBookingRateLimit(): boolean {
@@ -69,20 +70,55 @@ export async function cancelBookingAction(rawToken: string): Promise<{ ok: boole
   const hash = hashToken(parsed.data.token);
   const sb = createSupabaseAdmin();
 
-  const { data: r } = await sb.from('reservations').select('id,line_user_id,status,reservation_code').eq('cancel_token_hash', hash).maybeSingle();
+  const { data: r } = await sb.from('reservations')
+    .select('id,line_user_id,status,reservation_code,service_date,start_at,adult_count,child_count,pet_count,customer_name,phone,note')
+    .eq('cancel_token_hash', hash).maybeSingle();
   if (r) {
     if (r.status !== 'confirmed') return { ok: false, message: 'この予約はキャンセルできません。' };
     await sb.from('reservations').update({ status: 'cancelled' }).eq('id', r.id);
     if (r.line_user_id) await notify({ to: r.line_user_id, messages: [{ type: 'text', text: `ご予約 ${r.reservation_code} をキャンセルしました。` }], targetType: 'reservation', targetId: r.id, kind: 'cancelled' });
+    if (env.lineStaffDestinationId) {
+      const when = `${r.service_date} ${new Date(r.start_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })}`;
+      await notify({
+        to: env.lineStaffDestinationId,
+        messages: [{
+          type: 'text',
+          text: staffReservationCancelNotice({
+            cancelledAt: new Date(), when,
+            adultCount: r.adult_count, childCount: r.child_count, petCount: r.pet_count,
+            customerName: r.customer_name, phone: r.phone, code: r.reservation_code, note: r.note,
+          }),
+        }],
+        targetType: 'reservation', targetId: r.id, kind: 'staff_cancelled',
+      });
+    }
     return { ok: true, message: 'ご予約をキャンセルしました。' };
   }
 
-  const { data: o } = await sb.from('takeout_orders').select('id,line_user_id,status,order_code').eq('cancel_token_hash', hash).maybeSingle();
+  const { data: o } = await sb.from('takeout_orders')
+    .select('id,line_user_id,status,order_code,pickup_at,total,customer_name,phone,note')
+    .eq('cancel_token_hash', hash).maybeSingle();
   if (o) {
     const settings = await loadSettings(); void settings;
     if (o.status !== 'received') return { ok: false, message: '調理開始後のためキャンセルできません。店舗へご連絡ください。' };
     await sb.from('takeout_orders').update({ status: 'cancelled' }).eq('id', o.id);
     if (o.line_user_id) await notify({ to: o.line_user_id, messages: [{ type: 'text', text: `ご注文 ${o.order_code} をキャンセルしました。` }], targetType: 'takeout', targetId: o.id, kind: 'cancelled' });
+    if (env.lineStaffDestinationId) {
+      const pickup = new Date(o.pickup_at).toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      });
+      await notify({
+        to: env.lineStaffDestinationId,
+        messages: [{
+          type: 'text',
+          text: staffTakeoutCancelNotice({
+            cancelledAt: new Date(), pickup, total: o.total,
+            customerName: o.customer_name, phone: o.phone, code: o.order_code, note: o.note,
+          }),
+        }],
+        targetType: 'takeout', targetId: o.id, kind: 'staff_cancelled',
+      });
+    }
     return { ok: true, message: 'ご注文をキャンセルしました。' };
   }
   return { ok: false, message: 'ご予約が見つかりませんでした。' };

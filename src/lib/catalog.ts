@@ -72,6 +72,10 @@ const MOCK_ITEMS: CatalogItem[] = [
   { code: 'subc_avocado', name: 'アボカド', price: 0, soldOut: false },
   { code: 'subc_takuan', name: 'たくあん', price: 0, soldOut: false },
   { code: 'subc_kannori', name: '韓国海苔', price: 0, soldOut: false },
+  // 旧固定サブ（選択サブとして提供）
+  { code: 'subf_onion', name: '赤たまねぎ', price: 0, soldOut: false },
+  { code: 'subf_carrot', name: '人参', price: 0, soldOut: false },
+  { code: 'subf_cucumber', name: 'きゅうり', price: 0, soldOut: false },
 ];
 
 const MOCK_OPTIONS: Record<string, CatalogOption> = {
