@@ -1,6 +1,6 @@
 /** 公開メニュー取得（税込価格・オプション）。非個人情報。 */
 import { NextResponse } from 'next/server';
-import { useMockData } from '@/lib/config';
+import { useMockData, env } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -71,7 +71,9 @@ const MOCK = {
 };
 
 export async function GET() {
-  if (useMockData) return NextResponse.json(MOCK);
+  // 一時的なデバッグ情報: どのSupabaseプロジェクトを参照しているかを応答に含める（接続先URLは NEXT_PUBLIC で元々公開情報）。
+  const source = env.supabaseUrl ? new URL(env.supabaseUrl).host : 'mock (Supabase未設定)';
+  if (useMockData) return NextResponse.json({ source, ...MOCK });
   try {
     const sb = createSupabaseAdmin();
     const [{ data: cats }, { data: items }, { data: opts }] = await Promise.all([
@@ -96,6 +98,7 @@ export async function GET() {
     // 顧客向けカタログ: 単品として並べるのは plan / poke_drink / drink / sweets のみ。
     const displayCats = new Set(['plan', 'poke_drink', 'drink', 'sweets']);
     return NextResponse.json({
+      source,
       categories: (cats ?? []).map((c) => ({ code: c.code, name: c.name })).filter((c) => displayCats.has(c.code)),
       items: mapped.filter((i) => displayCats.has(i.category)),
       mains: mapped.filter((i) => i.category === 'main').map((i) => ({ code: i.code, name: i.name, extra: i.price })),
@@ -106,6 +109,6 @@ export async function GET() {
       planAddon: byGroup.get('plan_addon') ?? [],
     });
   } catch {
-    return NextResponse.json(MOCK);
+    return NextResponse.json({ source: `mock-fallback (${source})`, ...MOCK });
   }
 }
