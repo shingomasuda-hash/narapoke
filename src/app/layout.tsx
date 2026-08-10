@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 import GtmPageview from '@/components/GtmPageview';
 import './globals.css';
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </noscript>
         <div className="mx-auto min-h-screen w-full max-w-md px-4 pb-16 pt-6">{children}</div>
+        <Analytics />
       </body>
     </html>
   );
