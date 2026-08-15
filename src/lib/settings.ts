@@ -57,7 +57,7 @@ export async function loadSettings(): Promise<StoreSettings> {
   }
 }
 
-/** ランチ/ディナーで滞在時間を選ぶ（開始が16:00より前ならランチ扱い）。 */
+/** 滞在時間を選ぶ（開始が16:00より前ならランチ扱い。モーニングもランチと同じ滞在時間を使う）。 */
 export function stayMinutesFor(startMinutesFromMidnight: number, s: StoreSettings): number {
   return startMinutesFromMidnight < 16 * 60 ? s.lunchStayMinutes : s.dinnerStayMinutes;
 }

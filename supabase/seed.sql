@@ -5,14 +5,15 @@
 -- =====================================================================
 
 -- ---- 営業時間（0=日 .. 6=土, 木=4 は定休日） ----------------------
+-- モーニング(480-660)は席予約のみ。テイクアウト受取はランチ以降（lib/time.ts参照）。
 insert into business_hours (weekday, open_minutes, close_minutes, is_closed, label) values
-  (0, 660, 960, false, 'lunch'), (0, 1080, 1440, false, 'dinner'),
-  (1, 660, 960, false, 'lunch'), (1, 1080, 1440, false, 'dinner'),
-  (2, 660, 960, false, 'lunch'), (2, 1080, 1440, false, 'dinner'),
-  (3, 660, 960, false, 'lunch'), (3, 1080, 1440, false, 'dinner'),
+  (0, 480, 660, false, 'morning'), (0, 660, 960, false, 'lunch'), (0, 1080, 1440, false, 'dinner'),
+  (1, 480, 660, false, 'morning'), (1, 660, 960, false, 'lunch'), (1, 1080, 1440, false, 'dinner'),
+  (2, 480, 660, false, 'morning'), (2, 660, 960, false, 'lunch'), (2, 1080, 1440, false, 'dinner'),
+  (3, 480, 660, false, 'morning'), (3, 660, 960, false, 'lunch'), (3, 1080, 1440, false, 'dinner'),
   (4, 660, 960, true,  '定休日'),
-  (5, 660, 960, false, 'lunch'), (5, 1080, 1440, false, 'dinner'),
-  (6, 660, 960, false, 'lunch'), (6, 1080, 1440, false, 'dinner')
+  (5, 480, 660, false, 'morning'), (5, 660, 960, false, 'lunch'), (5, 1080, 1440, false, 'dinner'),
+  (6, 480, 660, false, 'morning'), (6, 660, 960, false, 'lunch'), (6, 1080, 1440, false, 'dinner')
 on conflict do nothing;
 
 -- ---- カテゴリ -----------------------------------------------------

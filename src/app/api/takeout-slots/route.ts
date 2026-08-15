@@ -1,7 +1,7 @@
 /** テイクアウト受取枠の取得（枠上限に対する残数）。 */
 import { NextRequest, NextResponse } from 'next/server';
 import { loadSettings } from '@/lib/settings';
-import { generateStartSlots, isThursday, jstInstant, parseTimeToMinutes } from '@/lib/time';
+import { generateStartSlots, isThursday, jstInstant, parseTimeToMinutes, TAKEOUT_WINDOWS } from '@/lib/time';
 import { useMockData } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const settings = await loadSettings();
   const raw = generateStartSlots({
     serviceDate: date, slotMinutes: settings.takeoutSlotMinutes,
+    windows: TAKEOUT_WINDOWS,
     acceptCutoffMinutes: settings.takeoutCutoffMinutes,
   }).filter((s) => !s.pastCutoff);
 

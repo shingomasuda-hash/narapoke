@@ -93,9 +93,13 @@ export interface OpenWindow {
 
 /** 店舗の初期営業時間（管理画面/DB で上書き可能。ここは既定値）。 */
 export const DEFAULT_WINDOWS: OpenWindow[] = [
+  { openMin: parseTimeToMinutes('08:00'), closeMin: parseTimeToMinutes('11:00'), label: 'morning' },
   { openMin: parseTimeToMinutes('11:00'), closeMin: parseTimeToMinutes('16:00'), label: 'lunch' },
   { openMin: parseTimeToMinutes('18:00'), closeMin: parseTimeToMinutes('24:00'), label: 'dinner' },
 ];
+
+/** テイクアウトの受取時間帯。モーニングは席予約（店内飲食）専用のため除外する。 */
+export const TAKEOUT_WINDOWS: OpenWindow[] = DEFAULT_WINDOWS.filter((w) => w.label !== 'morning');
 
 /**
  * ある開始時刻(分)が予約可能な営業時間内かどうか。
