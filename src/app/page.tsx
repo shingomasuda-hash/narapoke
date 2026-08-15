@@ -31,10 +31,13 @@ export default async function TopPage() {
         />
       </div>
 
-      {/* 2つの大きな選択肢 */}
+      {/* 3つの大きな選択肢 */}
       <div className="space-y-3">
+        <Link href="/reserve?mode=morning" className="btn-primary" aria-label="モーニングを予約する">
+          ☀️ モーニングを予約する
+        </Link>
         <Link href="/reserve" className="btn-primary" aria-label="席を予約する">
-          🍽 席を予約する
+          🍽 席を予約する（ランチ・ディナー）
         </Link>
         <Link href="/takeout" className="btn-outline" aria-label="テイクアウトを予約する">
           🥡 テイクアウトを予約する
