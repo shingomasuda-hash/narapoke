@@ -6,6 +6,7 @@ import { StepHeader } from '@/components/StepHeader';
 import { initLiff } from '@/lib/liff';
 import { createReservationAction } from '@/actions/reservation';
 import { generateIdempotencyKeyClient, isValidEmail, jpDateLabel, nextDates } from '@/lib/client-util';
+import { MORNING_ENABLED } from '@/lib/time';
 
 interface Slot { time: string; available: boolean; remaining: number }
 
@@ -90,6 +91,19 @@ export function ReserveForm({ morning = false }: { morning?: boolean }) {
       setError(result.message ?? '予約に失敗しました。');
       if (result.errorCode === 'FULL') { setStep(2); loadSlots(date, occupancy); }
     }
+  }
+
+  if (morning && !MORNING_ENABLED) {
+    return (
+      <main>
+        <Link href="/" className="mb-3 inline-block text-sm text-shu underline">← トップに戻る</Link>
+        <div className="card space-y-3 text-center">
+          <p className="font-serif text-xl font-bold text-sumi">☀️ モーニング Coming Soon</p>
+          <p className="text-sm text-sumi-soft">モーニング（8:00〜11:00）のご予約は近日開始予定です。<br />開始まで今しばらくお待ちください。</p>
+          <Link href="/reserve" className="btn-primary whitespace-nowrap">🍽 席を予約する</Link>
+        </div>
+      </main>
+    );
   }
 
   return (
