@@ -47,7 +47,10 @@ export default async function TopPage() {
         {isThu ? (
           <p className="font-semibold text-shu">本日（{weekday}）は定休日です</p>
         ) : (
-          <p>ランチ 11:00〜16:00 ／ ディナー 18:00〜24:00</p>
+          <>
+            <p>モーニング 8:00〜11:00 ／ ランチ 11:00〜16:00 ／ ディナー 18:00〜24:00</p>
+            <p className="text-xs text-sumi-soft">※モーニングは席のご予約のみ（テイクアウト受取は11:00〜）</p>
+          </>
         )}
         <p className="text-sumi-soft">定休日：毎週木曜日</p>
         <a href={info.instagramUrl} target="_blank" rel="noopener noreferrer" className="inline-block font-semibold text-shu underline">

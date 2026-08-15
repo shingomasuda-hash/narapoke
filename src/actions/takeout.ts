@@ -13,7 +13,7 @@ import { loadCatalog, resolveAddon } from '@/lib/catalog';
 import { validatePlanSelection, validateFruitVegSelection, validateSauceSelection, calcSubExcessFee, subExcessCount } from '@/lib/menu-rules';
 import { calcOrderTotals, type PriceLine } from '@/lib/pricing';
 import { formatOrderSummaryText, type OrderItemSnapshot } from '@/lib/order-format';
-import { parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows } from '@/lib/time';
+import { parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows, TAKEOUT_WINDOWS } from '@/lib/time';
 import { generateOrderCode, generateCancelToken, hashToken } from '@/lib/codes';
 import { normalizePhone, isValidJpPhone } from '@/lib/phone';
 import { verifyLineIdToken } from '@/lib/line/verify';
@@ -56,7 +56,7 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
     return { ok: false, errorCode: 'THURSDAY', message: toFriendly('THURSDAY') };
   }
   const pickMin = parseTimeToMinutes(input.pickupTime);
-  if (!isWithinOpenWindows(pickMin)) {
+  if (!isWithinOpenWindows(pickMin, TAKEOUT_WINDOWS)) {
     return { ok: false, errorCode: 'OUT_OF_HOURS', message: toFriendly('OUT_OF_HOURS') };
   }
   const pickupAt = jstInstant(input.pickupDate, pickMin);
