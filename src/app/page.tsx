@@ -31,13 +31,14 @@ export default async function TopPage() {
         />
       </div>
 
-      {/* 3つの大きな選択肢 */}
+      {/* 3つの大きな選択肢（モーニングは開始まで Coming Soon） */}
       <div className="space-y-3">
-        <Link href="/reserve?mode=morning" className="btn-primary" aria-label="モーニングを予約する">
-          ☀️ モーニングを予約する
-        </Link>
-        <Link href="/reserve" className="btn-primary" aria-label="席を予約する">
-          🍽 席を予約する（ランチ・ディナー）
+        <div className="btn-primary cursor-not-allowed opacity-60 whitespace-nowrap" aria-disabled="true">
+          ☀️ モーニング予約
+          <span className="rounded-full bg-cream/25 px-2 py-0.5 text-xs font-bold tracking-wide">Coming Soon</span>
+        </div>
+        <Link href="/reserve" className="btn-primary whitespace-nowrap" aria-label="席を予約する">
+          🍽 席を予約する<span className="text-sm font-semibold">（ランチ・ディナー）</span>
         </Link>
         <Link href="/takeout" className="btn-outline" aria-label="テイクアウトを予約する">
           🥡 テイクアウトを予約する
@@ -51,8 +52,8 @@ export default async function TopPage() {
           <p className="font-semibold text-shu">本日（{weekday}）は定休日です</p>
         ) : (
           <>
-            <p>モーニング 8:00〜11:00 ／ ランチ 11:00〜16:00 ／ ディナー 18:00〜24:00</p>
-            <p className="text-xs text-sumi-soft">※モーニングは席のご予約のみ（テイクアウト受取は11:00〜）</p>
+            <p>ランチ 11:00〜16:00 ／ ディナー 18:00〜24:00</p>
+            <p className="text-xs text-sumi-soft">☀️ モーニング（8:00〜11:00）は近日開始予定です</p>
           </>
         )}
         <p className="text-sumi-soft">定休日：毎週木曜日</p>

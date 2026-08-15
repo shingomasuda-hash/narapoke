@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTimeToMinutes, formatMinutes, jstInstant, jstParts, isThursday, isWithinOpenWindows, generateStartSlots, TAKEOUT_WINDOWS } from '@/lib/time';
+import { parseTimeToMinutes, formatMinutes, jstInstant, jstParts, isThursday, isWithinOpenWindows, generateStartSlots, TAKEOUT_WINDOWS, MORNING_ENABLED } from '@/lib/time';
 
 describe('営業時間・時刻処理', () => {
   it('24:00 は 1440 分として扱う', () => {
@@ -20,9 +20,9 @@ describe('営業時間・時刻処理', () => {
     expect(isWithinOpenWindows(parseTimeToMinutes('17:00'))).toBe(false);
   });
 
-  it('モーニング 8:00〜11:00 は席予約可能、8:00より前は不可', () => {
-    expect(isWithinOpenWindows(parseTimeToMinutes('08:00'))).toBe(true);
-    expect(isWithinOpenWindows(parseTimeToMinutes('10:30'))).toBe(true);
+  it('モーニング 8:00〜11:00 は MORNING_ENABLED に連動、8:00より前は常に不可', () => {
+    expect(isWithinOpenWindows(parseTimeToMinutes('08:00'))).toBe(MORNING_ENABLED);
+    expect(isWithinOpenWindows(parseTimeToMinutes('10:30'))).toBe(MORNING_ENABLED);
     expect(isWithinOpenWindows(parseTimeToMinutes('07:30'))).toBe(false);
   });
 
@@ -46,11 +46,11 @@ describe('営業時間・時刻処理', () => {
     expect(p.minutesFromMidnight).toBe(90);
   });
 
-  it('枠生成は 16:00〜18:00 を除外し 8:00〜23:30 を含む', () => {
+  it('枠生成は 16:00〜18:00 を除外し、モーニングは MORNING_ENABLED に連動する', () => {
     const slots = generateStartSlots({ serviceDate: '2099-01-05', slotMinutes: 30, now: new Date('2099-01-01T00:00:00Z') });
     const labels = slots.map((s) => s.label);
-    expect(labels[0]).toBe('08:00');
-    expect(labels).toContain('10:30');
+    expect(labels[0]).toBe(MORNING_ENABLED ? '08:00' : '11:00');
+    expect(labels.includes('10:30')).toBe(MORNING_ENABLED);
     expect(labels).toContain('11:00');
     expect(labels).not.toContain('16:00');
     expect(labels).not.toContain('17:00');
