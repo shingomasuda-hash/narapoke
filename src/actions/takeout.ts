@@ -21,7 +21,7 @@ import { notify } from '@/lib/line/client';
 import { takeoutFlex, staffTakeoutNotice } from '@/lib/line/flex';
 import { sendEmail } from '@/lib/email/client';
 import { takeoutCreatedEmail } from '@/lib/email/templates';
-import { useMockData, env } from '@/lib/config';
+import { useMockData, env, customerLineNotifyEnabled } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 export interface TakeoutResult {
@@ -181,7 +181,7 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
     const pickupLabel = `${input.pickupDate} ${input.pickupTime}`;
     const orderItems = itemSnapshots as unknown as OrderItemSnapshot[];
     const summary = formatOrderSummaryText(orderItems);
-    if (lineUserId) {
+    if (lineUserId && customerLineNotifyEnabled) {
       await notify({
         to: lineUserId,
         messages: [takeoutFlex({ code: row.order_code, pickup: pickupLabel, total: totals.total, token, items: orderItems })],

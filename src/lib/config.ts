@@ -34,5 +34,12 @@ export const useMockData = !isProd && !isSupabaseConfigured;
 export const lineSendEnabled =
   env.lineIntegrationEnabled && Boolean(env.lineChannelAccessToken);
 
+/**
+ * お客様向けLINE通知（完了・キャンセル・リマインド）を送るか。
+ * LINE公式アカウントの無料枠(月200通)節約のため停止中。お客様への通知はメールで代替する。
+ * スタッフ向けLINE通知はこのフラグに関係なく送信される。再開する場合は true に変更。
+ */
+export const customerLineNotifyEnabled = false;
+
 /** メール送信が有効か。RESEND_API_KEY が設定されている場合のみ実送信（未設定時はログ出力のモック）。 */
 export const emailSendEnabled = Boolean(env.resendApiKey);

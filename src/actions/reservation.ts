@@ -20,7 +20,7 @@ import { notify } from '@/lib/line/client';
 import { reservationFlex, staffReservationNotice } from '@/lib/line/flex';
 import { sendEmail } from '@/lib/email/client';
 import { reservationCreatedEmail } from '@/lib/email/templates';
-import { useMockData, env } from '@/lib/config';
+import { useMockData, env, customerLineNotifyEnabled } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 export interface ReservationResult {
@@ -142,7 +142,7 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
     const row = data as { id: string; reservation_code: string };
     // 6) 通知（失敗しても予約は成功のまま。ログに残す）
     const whenLabel = `${input.serviceDate} ${input.startTime}`;
-    if (lineUserId) {
+    if (lineUserId && customerLineNotifyEnabled) {
       await notify({
         to: lineUserId,
         messages: [reservationFlex({ code: row.reservation_code, when: whenLabel, partySize, token })],
