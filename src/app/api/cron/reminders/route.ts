@@ -1,7 +1,7 @@
 /**
  * リマインド定期実行（Vercel Cron 想定・1日1回 JST9:00）。
- * - 席予約: 開始2時間前(LINE) / 前日・当日の確認メール
- * - テイクアウト: 受取2時間前(LINE)
+ * - 席予約: 前日・当日の確認メール / 開始2時間前LINE（customerLineNotifyEnabled 時のみ）
+ * - テイクアウト: 当日の確認メール / 受取2時間前LINE（customerLineNotifyEnabled 時のみ）
  * - notification_logs で同一リマインドの二重送信を防止。
  * 認証: Authorization: Bearer CRON_SECRET
  *
@@ -10,12 +10,12 @@
  * 9:00 以降にその日の予約が入った場合は完了メールが当日確認を兼ねる。
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { env, useMockData } from '@/lib/config';
+import { env, useMockData, customerLineNotifyEnabled } from '@/lib/config';
 import { loadSettings } from '@/lib/settings';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { notify } from '@/lib/line/client';
 import { sendEmail } from '@/lib/email/client';
-import { reservationConfirmPrevDayEmail, reservationConfirmTodayEmail } from '@/lib/email/templates';
+import { reservationConfirmPrevDayEmail, reservationConfirmTodayEmail, takeoutConfirmTodayEmail } from '@/lib/email/templates';
 import { addDaysJst } from '@/lib/time';
 import { todayJst } from '@/lib/admin-data';
 
@@ -39,42 +39,43 @@ export async function GET(req: NextRequest) {
   const beforeMs = 2 * 3600_000; // 開始/受取2時間前（管理設定 reminder_before_hours 参照可）
   let sent = 0;
 
-  // 開始 N 時間前リマインド（席予約）
-  const windowStart = new Date(now).toISOString();
-  const windowEnd = new Date(now + beforeMs).toISOString();
-  const { data: reservations } = await sb
-    .from('reservations')
-    .select('id,line_user_id,start_at,reservation_code,party_size')
-    .eq('status', 'confirmed')
-    .gte('start_at', windowStart)
-    .lte('start_at', windowEnd);
+  // 開始/受取 N 時間前のLINEリマインド（お客様向けLINE通知が有効な場合のみ。無料枠節約のため既定は停止）
+  if (customerLineNotifyEnabled) {
+    const windowStart = new Date(now).toISOString();
+    const windowEnd = new Date(now + beforeMs).toISOString();
+    const { data: reservations } = await sb
+      .from('reservations')
+      .select('id,line_user_id,start_at,reservation_code,party_size')
+      .eq('status', 'confirmed')
+      .gte('start_at', windowStart)
+      .lte('start_at', windowEnd);
 
-  for (const r of reservations ?? []) {
-    if (!r.line_user_id) continue;
-    await notify({
-      to: r.line_user_id,
-      messages: [{ type: 'text', text: `まもなくご来店時刻です。ご予約 ${r.reservation_code}（${r.party_size}名）` }],
-      targetType: 'reservation', targetId: r.id, kind: 'reminder_before',
-    });
-    sent++;
-  }
+    for (const r of reservations ?? []) {
+      if (!r.line_user_id) continue;
+      await notify({
+        to: r.line_user_id,
+        messages: [{ type: 'text', text: `まもなくご来店時刻です。ご予約 ${r.reservation_code}（${r.party_size}名）` }],
+        targetType: 'reservation', targetId: r.id, kind: 'reminder_before',
+      });
+      sent++;
+    }
 
-  // 受取 N 時間前リマインド（テイクアウト）
-  const { data: orders } = await sb
-    .from('takeout_orders')
-    .select('id,line_user_id,pickup_at,order_code,total')
-    .in('status', ['received', 'cooking', 'ready'])
-    .gte('pickup_at', windowStart)
-    .lte('pickup_at', windowEnd);
+    const { data: orders } = await sb
+      .from('takeout_orders')
+      .select('id,line_user_id,pickup_at,order_code,total')
+      .in('status', ['received', 'cooking', 'ready'])
+      .gte('pickup_at', windowStart)
+      .lte('pickup_at', windowEnd);
 
-  for (const o of orders ?? []) {
-    if (!o.line_user_id) continue;
-    await notify({
-      to: o.line_user_id,
-      messages: [{ type: 'text', text: `まもなく受取時刻です。ご注文 ${o.order_code}（¥${o.total.toLocaleString()}）` }],
-      targetType: 'takeout', targetId: o.id, kind: 'reminder_before',
-    });
-    sent++;
+    for (const o of orders ?? []) {
+      if (!o.line_user_id) continue;
+      await notify({
+        to: o.line_user_id,
+        messages: [{ type: 'text', text: `まもなく受取時刻です。ご注文 ${o.order_code}（¥${o.total.toLocaleString()}）` }],
+        targetType: 'takeout', targetId: o.id, kind: 'reminder_before',
+      });
+      sent++;
+    }
   }
 
   // 前日・当日の確認メール（席予約、1日1回のこのバッチでのみ送信）
@@ -99,6 +100,26 @@ export async function GET(req: NextRequest) {
     await sendEmail({
       to: r.email, ...mail, targetType: 'reservation', targetId: r.id,
       kind: isToday ? 'email_confirm_today' : 'email_confirm_prev_day',
+    });
+    sent++;
+  }
+
+  // 当日の確認メール（テイクアウト。LINEリマインド停止の代替としてメールで案内する）
+  const { data: todayOrders } = await sb
+    .from('takeout_orders')
+    .select('id,email,customer_name,pickup_at,order_code,total')
+    .in('status', ['received', 'cooking', 'ready'])
+    .eq('service_date', today)
+    .not('email', 'is', null);
+
+  for (const o of todayOrders ?? []) {
+    if (!o.email) continue;
+    const pickup = new Date(o.pickup_at).toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
+    const mail = takeoutConfirmTodayEmail({ customerName: o.customer_name, pickup, code: o.order_code, total: o.total });
+    await sendEmail({
+      to: o.email, ...mail, targetType: 'takeout', targetId: o.id, kind: 'email_confirm_today',
     });
     sent++;
   }

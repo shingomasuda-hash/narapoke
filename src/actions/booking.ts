@@ -6,7 +6,7 @@
 import { headers } from 'next/headers';
 import { hashToken } from '@/lib/codes';
 import { cancelInputSchema } from '@/lib/schemas';
-import { useMockData, env } from '@/lib/config';
+import { useMockData, env, customerLineNotifyEnabled } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { loadSettings } from '@/lib/settings';
 import { notify } from '@/lib/line/client';
@@ -79,7 +79,7 @@ export async function cancelBookingAction(rawToken: string): Promise<{ ok: boole
     if (r.status !== 'confirmed') return { ok: false, message: 'この予約はキャンセルできません。' };
     await sb.from('reservations').update({ status: 'cancelled' }).eq('id', r.id);
     const when = `${r.service_date} ${new Date(r.start_at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })}`;
-    if (r.line_user_id) await notify({ to: r.line_user_id, messages: [{ type: 'text', text: `ご予約 ${r.reservation_code} をキャンセルしました。` }], targetType: 'reservation', targetId: r.id, kind: 'cancelled' });
+    if (r.line_user_id && customerLineNotifyEnabled) await notify({ to: r.line_user_id, messages: [{ type: 'text', text: `ご予約 ${r.reservation_code} をキャンセルしました。` }], targetType: 'reservation', targetId: r.id, kind: 'cancelled' });
     if (r.email) {
       const mail = reservationCancelledEmail({ customerName: r.customer_name, when, code: r.reservation_code });
       await sendEmail({ to: r.email, ...mail, targetType: 'reservation', targetId: r.id, kind: 'email_cancelled' });
@@ -111,7 +111,7 @@ export async function cancelBookingAction(rawToken: string): Promise<{ ok: boole
     const pickup = new Date(o.pickup_at).toLocaleString('ja-JP', {
       timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
     });
-    if (o.line_user_id) await notify({ to: o.line_user_id, messages: [{ type: 'text', text: `ご注文 ${o.order_code} をキャンセルしました。` }], targetType: 'takeout', targetId: o.id, kind: 'cancelled' });
+    if (o.line_user_id && customerLineNotifyEnabled) await notify({ to: o.line_user_id, messages: [{ type: 'text', text: `ご注文 ${o.order_code} をキャンセルしました。` }], targetType: 'takeout', targetId: o.id, kind: 'cancelled' });
     if (o.email) {
       const mail = takeoutCancelledEmail({ customerName: o.customer_name, pickup, code: o.order_code });
       await sendEmail({ to: o.email, ...mail, targetType: 'takeout', targetId: o.id, kind: 'email_cancelled' });

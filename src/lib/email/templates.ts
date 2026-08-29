@@ -67,6 +67,18 @@ export function takeoutCancelledEmail(p: { customerName: string; pickup: string;
   };
 }
 
+export function takeoutConfirmTodayEmail(p: { customerName: string; pickup: string; code: string; total: number }) {
+  return {
+    subject: `【なら和ポケ日和】本日のお受け取りのご確認（${p.code}）`,
+    html: layout('本日のお受け取りをお待ちしております', [
+      `${p.customerName}様`,
+      `注文番号: ${p.code}`,
+      `受取日時: ${p.pickup}`,
+      `合計: ¥${p.total.toLocaleString()}（店舗でのお支払い）`,
+    ]),
+  };
+}
+
 export function reservationConfirmPrevDayEmail(p: { customerName: string; when: string; partySize: number; code: string }) {
   return {
     subject: `【なら和ポケ日和】明日のご予約のご確認（${p.code}）`,
