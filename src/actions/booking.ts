@@ -96,9 +96,9 @@ export async function cancelBookingAction(rawToken: string): Promise<{ ok: boole
         targetType: 'reservation', targetId: r.id, kind: 'staff_cancelled',
       });
     }
-    if (env.staffNotifyEmail) {
+    for (const staffAddr of env.staffNotifyEmails) {
       const mail = staffNoticeEmail({ subject: `【予約キャンセル】${when} ${r.customer_name}様`, text: staffText });
-      await sendEmail({ to: env.staffNotifyEmail, ...mail, targetType: 'reservation', targetId: r.id, kind: 'email_staff_cancelled' });
+      await sendEmail({ to: staffAddr, ...mail, targetType: 'reservation', targetId: r.id, kind: 'email_staff_cancelled' });
     }
     return { ok: true, message: 'ご予約をキャンセルしました。' };
   }
@@ -129,9 +129,9 @@ export async function cancelBookingAction(rawToken: string): Promise<{ ok: boole
         targetType: 'takeout', targetId: o.id, kind: 'staff_cancelled',
       });
     }
-    if (env.staffNotifyEmail) {
+    for (const staffAddr of env.staffNotifyEmails) {
       const mail = staffNoticeEmail({ subject: `【テイクアウトキャンセル】${pickup} ${o.customer_name}様`, text: staffText });
-      await sendEmail({ to: env.staffNotifyEmail, ...mail, targetType: 'takeout', targetId: o.id, kind: 'email_staff_cancelled' });
+      await sendEmail({ to: staffAddr, ...mail, targetType: 'takeout', targetId: o.id, kind: 'email_staff_cancelled' });
     }
     return { ok: true, message: 'ご注文をキャンセルしました。' };
   }

@@ -199,9 +199,9 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
         targetType: 'takeout', targetId: row.id, kind: 'staff_created',
       });
     }
-    if (env.staffNotifyEmail) {
+    for (const staffAddr of env.staffNotifyEmails) {
       const mail = staffNoticeEmail({ subject: `【新規テイクアウト】${pickupLabel} ${input.customerName}様`, text: staffText });
-      await sendEmail({ to: env.staffNotifyEmail, ...mail, targetType: 'takeout', targetId: row.id, kind: 'email_staff_created' });
+      await sendEmail({ to: staffAddr, ...mail, targetType: 'takeout', targetId: row.id, kind: 'email_staff_created' });
     }
     if (input.email) {
       const mail = takeoutCreatedEmail({

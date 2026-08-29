@@ -161,9 +161,9 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
         targetType: 'reservation', targetId: row.id, kind: 'staff_created',
       });
     }
-    if (env.staffNotifyEmail) {
+    for (const staffAddr of env.staffNotifyEmails) {
       const mail = staffNoticeEmail({ subject: `【新規予約】${whenLabel} ${input.customerName}様`, text: staffText });
-      await sendEmail({ to: env.staffNotifyEmail, ...mail, targetType: 'reservation', targetId: row.id, kind: 'email_staff_created' });
+      await sendEmail({ to: staffAddr, ...mail, targetType: 'reservation', targetId: row.id, kind: 'email_staff_created' });
     }
     if (input.email) {
       const mail = reservationCreatedEmail({ customerName: input.customerName, when: whenLabel, partySize, code: row.reservation_code, token });
