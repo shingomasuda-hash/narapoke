@@ -22,6 +22,7 @@ export const env = {
   cronSecret: process.env.CRON_SECRET ?? '',
   resendApiKey: process.env.RESEND_API_KEY ?? '',
   resendFromEmail: process.env.RESEND_FROM_EMAIL ?? 'なら和ポケ日和 <onboarding@resend.dev>',
+  staffNotifyEmail: process.env.STAFF_NOTIFY_EMAIL ?? '',
   takeoutTaxRate: process.env.TAKEOUT_TAX_RATE ? Number(process.env.TAKEOUT_TAX_RATE) : undefined,
   reservationMaxDays: process.env.RESERVATION_MAX_DAYS ? Number(process.env.RESERVATION_MAX_DAYS) : 60,
 };

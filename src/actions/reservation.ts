@@ -19,7 +19,7 @@ import { verifyLineIdToken } from '@/lib/line/verify';
 import { notify } from '@/lib/line/client';
 import { reservationFlex, staffReservationNotice } from '@/lib/line/flex';
 import { sendEmail } from '@/lib/email/client';
-import { reservationCreatedEmail } from '@/lib/email/templates';
+import { reservationCreatedEmail, staffNoticeEmail } from '@/lib/email/templates';
 import { useMockData, env, customerLineNotifyEnabled } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -149,19 +149,21 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
         targetType: 'reservation', targetId: row.id, kind: 'created',
       });
     }
+    const staffText = staffReservationNotice({
+      createdAt: new Date(), when: whenLabel,
+      adultCount: input.adultCount, childCount: input.childCount ?? 0, petCount: input.petCount ?? 0,
+      customerName: input.customerName, phone, email: input.email, note: input.note || null,
+    });
     if (env.lineStaffDestinationId) {
       await notify({
         to: env.lineStaffDestinationId,
-        messages: [{
-          type: 'text',
-          text: staffReservationNotice({
-            createdAt: new Date(), when: whenLabel,
-            adultCount: input.adultCount, childCount: input.childCount ?? 0, petCount: input.petCount ?? 0,
-            customerName: input.customerName, phone, email: input.email, note: input.note || null,
-          }),
-        }],
+        messages: [{ type: 'text', text: staffText }],
         targetType: 'reservation', targetId: row.id, kind: 'staff_created',
       });
+    }
+    if (env.staffNotifyEmail) {
+      const mail = staffNoticeEmail({ subject: `【新規予約】${whenLabel} ${input.customerName}様`, text: staffText });
+      await sendEmail({ to: env.staffNotifyEmail, ...mail, targetType: 'reservation', targetId: row.id, kind: 'email_staff_created' });
     }
     if (input.email) {
       const mail = reservationCreatedEmail({ customerName: input.customerName, when: whenLabel, partySize, code: row.reservation_code, token });
