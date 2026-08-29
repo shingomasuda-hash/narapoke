@@ -1,6 +1,18 @@
 /** 予約・テイクアウトメールのテンプレート（完了／キャンセル／前日確認／当日確認）。 */
 import { env } from '@/lib/config';
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** スタッフ向け通知メール。LINEのスタッフ通知と同じ本文をそのままメールで届ける。 */
+export function staffNoticeEmail(p: { subject: string; text: string }) {
+  return {
+    subject: p.subject,
+    html: `<div style="font-family:sans-serif;color:#3B2A20;max-width:480px;margin:0 auto;"><p>${escapeHtml(p.text).replace(/\n/g, '<br>')}</p></div>`,
+  };
+}
+
 function layout(title: string, bodyLines: string[], token?: string): string {
   const url = token ? `${env.appUrl}/booking/${token}` : null;
   return `

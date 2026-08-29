@@ -20,7 +20,7 @@ import { verifyLineIdToken } from '@/lib/line/verify';
 import { notify } from '@/lib/line/client';
 import { takeoutFlex, staffTakeoutNotice } from '@/lib/line/flex';
 import { sendEmail } from '@/lib/email/client';
-import { takeoutCreatedEmail } from '@/lib/email/templates';
+import { takeoutCreatedEmail, staffNoticeEmail } from '@/lib/email/templates';
 import { useMockData, env, customerLineNotifyEnabled } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -188,18 +188,20 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
         targetType: 'takeout', targetId: row.id, kind: 'created',
       });
     }
+    const staffText = staffTakeoutNotice({
+      createdAt: new Date(), code: row.order_code, pickup: pickupLabel, total: totals.total,
+      customerName: input.customerName, phone, email: input.email, summary, note: input.note || null,
+    });
     if (env.lineStaffDestinationId) {
       await notify({
         to: env.lineStaffDestinationId,
-        messages: [{
-          type: 'text',
-          text: staffTakeoutNotice({
-            createdAt: new Date(), code: row.order_code, pickup: pickupLabel, total: totals.total,
-            customerName: input.customerName, phone, email: input.email, summary, note: input.note || null,
-          }),
-        }],
+        messages: [{ type: 'text', text: staffText }],
         targetType: 'takeout', targetId: row.id, kind: 'staff_created',
       });
+    }
+    if (env.staffNotifyEmail) {
+      const mail = staffNoticeEmail({ subject: `【新規テイクアウト】${pickupLabel} ${input.customerName}様`, text: staffText });
+      await sendEmail({ to: env.staffNotifyEmail, ...mail, targetType: 'takeout', targetId: row.id, kind: 'email_staff_created' });
     }
     if (input.email) {
       const mail = takeoutCreatedEmail({
