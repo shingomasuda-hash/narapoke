@@ -10,7 +10,7 @@ import { MORNING_ENABLED } from '@/lib/time';
 
 interface Slot { time: string; available: boolean; remaining: number }
 
-/** モーニング(8:00〜11:00)とランチ・ディナーの境目。"HH:mm"はゼロ埋めのため文字列比較で判定できる。 */
+/** モーニングとランチ・ディナーの境目。"HH:mm"はゼロ埋めのため文字列比較で判定できる。 */
 const MORNING_END = '11:00';
 
 export function ReserveForm({ morning = false }: { morning?: boolean }) {
@@ -55,9 +55,9 @@ export function ReserveForm({ morning = false }: { morning?: boolean }) {
       const data = await res.json();
       if (data.closed) { setClosed(data.reason === 'THURSDAY' ? '木曜定休日' : '休業日'); setSlots([]); }
       else {
-        // 入り口ごとに表示枠を絞る: モーニングは11:00前、通常は11:00以降
+        // 入り口ごとに表示枠を絞る: モーニングは11:00開始まで、通常は11:00以降（11:00は両方に表示）
         const all: Slot[] = data.slots ?? [];
-        setSlots(all.filter((s) => (morning ? s.time < MORNING_END : s.time >= MORNING_END)));
+        setSlots(all.filter((s) => (morning ? s.time <= MORNING_END : s.time >= MORNING_END)));
       }
     } catch {
       setError('空き状況の取得に失敗しました。通信環境をご確認ください。');
