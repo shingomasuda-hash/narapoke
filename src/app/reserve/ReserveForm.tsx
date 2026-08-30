@@ -99,7 +99,7 @@ export function ReserveForm({ morning = false }: { morning?: boolean }) {
         <Link href="/" className="mb-3 inline-block text-sm text-shu underline">← トップに戻る</Link>
         <div className="card space-y-3 text-center">
           <p className="font-serif text-xl font-bold text-sumi">☀️ モーニング Coming Soon</p>
-          <p className="text-sm text-sumi-soft">モーニング（8:00〜11:00）のご予約は近日開始予定です。<br />開始まで今しばらくお待ちください。</p>
+          <p className="text-sm text-sumi-soft">モーニング（9:00〜11:00）のご予約は近日開始予定です。<br />開始まで今しばらくお待ちください。</p>
           <Link href="/reserve" className="btn-primary whitespace-nowrap">🍽 席を予約する</Link>
         </div>
       </main>
@@ -110,7 +110,7 @@ export function ReserveForm({ morning = false }: { morning?: boolean }) {
     <main>
       <Link href="/" className="mb-3 inline-block text-sm text-shu underline">← トップに戻る</Link>
       <p className="mb-3 font-serif text-lg font-bold text-sumi">
-        {morning ? '☀️ モーニングのご予約（8:00〜11:00）' : '🍽 席のご予約（ランチ・ディナー）'}
+        {morning ? '☀️ モーニングのご予約（9:00〜11:00）' : '🍽 席のご予約（ランチ・ディナー）'}
       </p>
 
       {step === 1 && (

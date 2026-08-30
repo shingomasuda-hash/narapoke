@@ -92,12 +92,12 @@ export interface OpenWindow {
 }
 
 /**
- * モーニング営業（8:00〜11:00・席予約のみ）の受付を有効にするか。
- * 提供開始が決まったら true に変えるだけで、トップの入り口・予約枠・検証が一斉に有効化される。
+ * モーニング営業（9:00〜11:00・席予約のみ）の受付を有効にするか。
+ * false に変えるだけで、トップの入り口・予約枠・検証が一斉に停止する。
  */
-export const MORNING_ENABLED = false;
+export const MORNING_ENABLED = true;
 
-const MORNING_WINDOW: OpenWindow = { openMin: parseTimeToMinutes('08:00'), closeMin: parseTimeToMinutes('11:00'), label: 'morning' };
+const MORNING_WINDOW: OpenWindow = { openMin: parseTimeToMinutes('09:00'), closeMin: parseTimeToMinutes('11:00'), label: 'morning' };
 
 /** 店舗の初期営業時間（管理画面/DB で上書き可能。ここは既定値）。 */
 export const DEFAULT_WINDOWS: OpenWindow[] = [
