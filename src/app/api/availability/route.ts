@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { loadSettings, stayMinutesFor } from '@/lib/settings';
-import { generateStartSlots, isThursday, parseTimeToMinutes, jstInstant } from '@/lib/time';
+import { generateStartSlots, isThursday, parseTimeToMinutes, jstInstant, isMorningAvailable, MORNING_END_MIN } from '@/lib/time';
 import { canReserve, type Interval } from '@/lib/availability';
 import { useMockData } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     serviceDate: date,
     slotMinutes: settings.slotMinutes,
     acceptCutoffMinutes: settings.acceptCutoffMinutes,
-  });
+  }).filter((s) => s.minutes >= MORNING_END_MIN || isMorningAvailable(date)); // モーニング休みの曜日は朝枠を出さない
 
   // 既存予約の取得（本番のみ）
   let existing: Interval[] = [];

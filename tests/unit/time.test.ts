@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTimeToMinutes, formatMinutes, jstInstant, jstParts, isThursday, isWithinOpenWindows, generateStartSlots, TAKEOUT_WINDOWS, MORNING_ENABLED } from '@/lib/time';
+import { parseTimeToMinutes, formatMinutes, jstInstant, jstParts, isThursday, isWithinOpenWindows, generateStartSlots, TAKEOUT_WINDOWS, MORNING_ENABLED, isMorningAvailable } from '@/lib/time';
 
 describe('営業時間・時刻処理', () => {
   it('24:00 は 1440 分として扱う', () => {
@@ -24,6 +24,13 @@ describe('営業時間・時刻処理', () => {
     expect(isWithinOpenWindows(parseTimeToMinutes('09:00'))).toBe(MORNING_ENABLED);
     expect(isWithinOpenWindows(parseTimeToMinutes('10:30'))).toBe(MORNING_ENABLED);
     expect(isWithinOpenWindows(parseTimeToMinutes('08:30'))).toBe(false);
+  });
+
+  it('モーニングは木曜・土曜が休み（2026-09-03は木、09-05は土、09-02は水）', () => {
+    expect(isMorningAvailable('2026-09-03')).toBe(false); // 木
+    expect(isMorningAvailable('2026-09-05')).toBe(false); // 土
+    expect(isMorningAvailable('2026-09-02')).toBe(MORNING_ENABLED); // 水
+    expect(isMorningAvailable('2026-09-06')).toBe(MORNING_ENABLED); // 日
   });
 
   it('テイクアウト受取はモーニング時間帯を含まない（11:00〜）', () => {
