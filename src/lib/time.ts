@@ -99,6 +99,17 @@ export const MORNING_ENABLED = true;
 
 const MORNING_WINDOW: OpenWindow = { openMin: parseTimeToMinutes('09:00'), closeMin: parseTimeToMinutes('11:00'), label: 'morning' };
 
+/** モーニング枠の終了時刻（この時刻より前の開始枠はモーニング扱い）。 */
+export const MORNING_END_MIN = MORNING_WINDOW.closeMin;
+
+/** モーニングを休む曜日（木曜=店全体の定休日に加え、土曜はモーニング休み）。 */
+export const MORNING_CLOSED_WEEKDAYS: Weekday[] = [4, 6];
+
+/** その営業日にモーニング予約を受け付けるか（曜日休みを考慮）。 */
+export function isMorningAvailable(serviceDate: string): boolean {
+  return MORNING_ENABLED && !MORNING_CLOSED_WEEKDAYS.includes(weekdayOf(serviceDate));
+}
+
 /** 店舗の初期営業時間（管理画面/DB で上書き可能。ここは既定値）。 */
 export const DEFAULT_WINDOWS: OpenWindow[] = [
   ...(MORNING_ENABLED ? [MORNING_WINDOW] : []),

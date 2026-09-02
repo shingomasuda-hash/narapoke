@@ -10,7 +10,7 @@ import { toFriendly } from '@/lib/errors';
 import { rateLimit } from '@/lib/rate-limit';
 import { loadSettings, stayMinutesFor } from '@/lib/settings';
 import {
-  parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows,
+  parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows, isMorningAvailable, MORNING_END_MIN,
 } from '@/lib/time';
 import { canReserve } from '@/lib/availability';
 import { generateReservationCode, generateCancelToken, hashToken } from '@/lib/codes';
@@ -65,6 +65,9 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
   const startMin = parseTimeToMinutes(input.startTime);
   if (!isWithinOpenWindows(startMin)) {
     return { ok: false, errorCode: 'OUT_OF_HOURS', message: toFriendly('OUT_OF_HOURS') };
+  }
+  if (startMin < MORNING_END_MIN && !isMorningAvailable(input.serviceDate)) {
+    return { ok: false, errorCode: 'OUT_OF_HOURS', message: 'モーニングは木曜・土曜がお休みです。別の日をお選びください。' };
   }
   const startAt = jstInstant(input.serviceDate, startMin);
   const stay = stayMinutesFor(startMin, settings);

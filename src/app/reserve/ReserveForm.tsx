@@ -116,15 +116,19 @@ export function ReserveForm({ morning = false }: { morning?: boolean }) {
       {step === 1 && (
         <>
           <StepHeader step={1} total={6} title="ご来店日を選ぶ" />
+          {morning && <p className="mb-2 text-xs text-sumi-soft">※モーニングは木曜・土曜がお休みです</p>}
           <div className="grid grid-cols-3 gap-2">
-            {dates.map((d) => (
-              <button key={d.value} onClick={() => pickDate(d.value)} disabled={d.thursday}
-                className={`chip flex-col !h-auto py-3 ${d.thursday ? 'opacity-30' : ''}`}>
-                <span className="text-xs">{d.month}月</span>
-                <span className="text-lg">{d.day}</span>
-                <span className="text-xs">{d.weekday}{d.thursday ? '・休' : ''}</span>
-              </button>
-            ))}
+            {dates.map((d) => {
+              const dayOff = d.thursday || (morning && d.saturday);
+              return (
+                <button key={d.value} onClick={() => pickDate(d.value)} disabled={dayOff}
+                  className={`chip flex-col !h-auto py-3 ${dayOff ? 'opacity-30' : ''}`}>
+                  <span className="text-xs">{d.month}月</span>
+                  <span className="text-lg">{d.day}</span>
+                  <span className="text-xs">{d.weekday}{dayOff ? '・休' : ''}</span>
+                </button>
+              );
+            })}
           </div>
         </>
       )}

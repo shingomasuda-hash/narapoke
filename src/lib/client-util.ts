@@ -12,7 +12,7 @@ const WD = ['日', '月', '火', '水', '木', '金', '土'];
 
 /** 今日から days 日先までの日付リスト（JST基準）。木曜フラグ付き。 */
 export function nextDates(days: number) {
-  const out: { value: string; month: number; day: number; weekday: string; thursday: boolean }[] = [];
+  const out: { value: string; month: number; day: number; weekday: string; thursday: boolean; saturday: boolean }[] = [];
   const now = new Date();
   for (let i = 0; i <= days; i++) {
     const d = new Date(now.getTime() + i * 86_400_000);
@@ -26,7 +26,7 @@ export function nextDates(days: number) {
     const wdIdx = new Date(`${value}T00:00:00+09:00`).getUTCDay();
     // JST 00:00 の UTC 曜日は前日にずれるため getDay をローカルではなく計算で
     const jstWd = new Date(`${value}T12:00:00+09:00`).getUTCDay();
-    out.push({ value, month: Number(mo), day: Number(da), weekday: WD[jstWd], thursday: jstWd === 4 });
+    out.push({ value, month: Number(mo), day: Number(da), weekday: WD[jstWd], thursday: jstWd === 4, saturday: jstWd === 6 });
     void wdIdx;
   }
   return out;
