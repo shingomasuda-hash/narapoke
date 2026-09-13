@@ -110,6 +110,17 @@ export function isMorningAvailable(serviceDate: string): boolean {
   return MORNING_ENABLED && !MORNING_CLOSED_WEEKDAYS.includes(weekdayOf(serviceDate));
 }
 
+/**
+ * 予約受付の最終営業日（YYYY-MM-DD, JST）。これより後の日付の席予約・テイクアウトを受け付けない。
+ * 10月以降の受付停止のため設定中。制限を外すときは null にする。
+ */
+export const BOOKING_LAST_DATE: string | null = '2026-09-30';
+
+/** その営業日が受付期間外（BOOKING_LAST_DATE より後）かどうか。 */
+export function isBeyondBookingWindow(serviceDate: string): boolean {
+  return BOOKING_LAST_DATE !== null && serviceDate > BOOKING_LAST_DATE;
+}
+
 /** 店舗の初期営業時間（管理画面/DB で上書き可能。ここは既定値）。 */
 export const DEFAULT_WINDOWS: OpenWindow[] = [
   ...(MORNING_ENABLED ? [MORNING_WINDOW] : []),

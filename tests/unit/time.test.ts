@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTimeToMinutes, formatMinutes, jstInstant, jstParts, isThursday, isWithinOpenWindows, generateStartSlots, TAKEOUT_WINDOWS, MORNING_ENABLED, isMorningAvailable } from '@/lib/time';
+import { parseTimeToMinutes, formatMinutes, jstInstant, jstParts, isThursday, isWithinOpenWindows, generateStartSlots, TAKEOUT_WINDOWS, MORNING_ENABLED, isMorningAvailable, isBeyondBookingWindow, BOOKING_LAST_DATE } from '@/lib/time';
 
 describe('営業時間・時刻処理', () => {
   it('24:00 は 1440 分として扱う', () => {
@@ -31,6 +31,16 @@ describe('営業時間・時刻処理', () => {
     expect(isMorningAvailable('2026-09-05')).toBe(false); // 土
     expect(isMorningAvailable('2026-09-02')).toBe(MORNING_ENABLED); // 水
     expect(isMorningAvailable('2026-09-06')).toBe(MORNING_ENABLED); // 日
+  });
+
+  it('受付最終日より後の日付は受付期間外になる', () => {
+    if (BOOKING_LAST_DATE === null) {
+      expect(isBeyondBookingWindow('2099-12-31')).toBe(false);
+    } else {
+      expect(isBeyondBookingWindow(BOOKING_LAST_DATE)).toBe(false);
+      expect(isBeyondBookingWindow('2026-10-01')).toBe(true);
+      expect(isBeyondBookingWindow('2026-09-15')).toBe(false);
+    }
   });
 
   it('テイクアウト受取はモーニング時間帯を含まない（11:00〜）', () => {

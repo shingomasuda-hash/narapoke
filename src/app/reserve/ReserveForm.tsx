@@ -6,7 +6,7 @@ import { StepHeader } from '@/components/StepHeader';
 import { initLiff } from '@/lib/liff';
 import { createReservationAction } from '@/actions/reservation';
 import { generateIdempotencyKeyClient, isValidEmail, jpDateLabel, nextDates } from '@/lib/client-util';
-import { MORNING_ENABLED } from '@/lib/time';
+import { MORNING_ENABLED, isBeyondBookingWindow } from '@/lib/time';
 
 interface Slot { time: string; available: boolean; remaining: number }
 
@@ -36,7 +36,7 @@ export function ReserveForm({ morning = false }: { morning?: boolean }) {
   const [error, setError] = useState('');
 
   const idem = useMemo(() => generateIdempotencyKeyClient(), []);
-  const dates = useMemo(() => nextDates(60), []);
+  const dates = useMemo(() => nextDates(60).filter((d) => !isBeyondBookingWindow(d.value)), []);
 
   // LIFF: 表示名を初期値に
   useEffect(() => {

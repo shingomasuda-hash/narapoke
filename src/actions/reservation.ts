@@ -10,7 +10,7 @@ import { toFriendly } from '@/lib/errors';
 import { rateLimit } from '@/lib/rate-limit';
 import { loadSettings, stayMinutesFor } from '@/lib/settings';
 import {
-  parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows, isMorningAvailable, MORNING_END_MIN,
+  parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows, isMorningAvailable, MORNING_END_MIN, isBeyondBookingWindow,
 } from '@/lib/time';
 import { canReserve } from '@/lib/availability';
 import { generateReservationCode, generateCancelToken, hashToken } from '@/lib/codes';
@@ -61,6 +61,9 @@ export async function createReservationAction(raw: ReservationInput): Promise<Re
   }
   if (isThursday(input.serviceDate)) {
     return { ok: false, errorCode: 'THURSDAY', message: toFriendly('THURSDAY') };
+  }
+  if (isBeyondBookingWindow(input.serviceDate)) {
+    return { ok: false, errorCode: 'INVALID', message: '申し訳ありません。10月以降のご予約は現在受け付けておりません。' };
   }
   const startMin = parseTimeToMinutes(input.startTime);
   if (!isWithinOpenWindows(startMin)) {

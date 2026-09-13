@@ -13,7 +13,7 @@ import { loadCatalog, resolveAddon } from '@/lib/catalog';
 import { validatePlanSelection, validateFruitVegSelection, validateSauceSelection, calcSubExcessFee, subExcessCount } from '@/lib/menu-rules';
 import { calcOrderTotals, type PriceLine } from '@/lib/pricing';
 import { formatOrderSummaryText, type OrderItemSnapshot } from '@/lib/order-format';
-import { parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows, TAKEOUT_WINDOWS } from '@/lib/time';
+import { parseTimeToMinutes, jstInstant, isThursday, isWithinOpenWindows, TAKEOUT_WINDOWS, isBeyondBookingWindow } from '@/lib/time';
 import { generateOrderCode, generateCancelToken, hashToken } from '@/lib/codes';
 import { normalizePhone, isValidJpPhone } from '@/lib/phone';
 import { verifyLineIdToken } from '@/lib/line/verify';
@@ -54,6 +54,9 @@ export async function createTakeoutAction(raw: TakeoutInput): Promise<TakeoutRes
   // 受取日時の営業日/締切チェック
   if (isThursday(input.pickupDate)) {
     return { ok: false, errorCode: 'THURSDAY', message: toFriendly('THURSDAY') };
+  }
+  if (isBeyondBookingWindow(input.pickupDate)) {
+    return { ok: false, errorCode: 'INVALID', message: '申し訳ありません。10月以降のご注文は現在受け付けておりません。' };
   }
   const pickMin = parseTimeToMinutes(input.pickupTime);
   if (!isWithinOpenWindows(pickMin, TAKEOUT_WINDOWS)) {
