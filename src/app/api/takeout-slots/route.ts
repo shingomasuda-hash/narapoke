@@ -1,7 +1,7 @@
 /** テイクアウト受取枠の取得（枠上限に対する残数）。 */
 import { NextRequest, NextResponse } from 'next/server';
 import { loadSettings } from '@/lib/settings';
-import { generateStartSlots, isThursday, jstInstant, parseTimeToMinutes, TAKEOUT_WINDOWS } from '@/lib/time';
+import { generateStartSlots, isThursday, jstInstant, parseTimeToMinutes, TAKEOUT_WINDOWS, isBeyondBookingWindow } from '@/lib/time';
 import { useMockData } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'INVALID_DATE' }, { status: 400 });
   }
   if (isThursday(date)) return NextResponse.json({ date, closed: true, slots: [] });
+  if (isBeyondBookingWindow(date)) return NextResponse.json({ date, closed: true, slots: [] });
   const settings = await loadSettings();
   const raw = generateStartSlots({
     serviceDate: date, slotMinutes: settings.takeoutSlotMinutes,

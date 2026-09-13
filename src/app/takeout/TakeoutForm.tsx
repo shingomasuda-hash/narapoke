@@ -6,6 +6,7 @@ import { StepHeader } from '@/components/StepHeader';
 import { initLiff } from '@/lib/liff';
 import { createTakeoutAction } from '@/actions/takeout';
 import { generateIdempotencyKeyClient, isValidEmail, jpDateLabel, nextDates } from '@/lib/client-util';
+import { isBeyondBookingWindow } from '@/lib/time';
 
 interface MItem { code: string; name: string; price: number; soldOut: boolean; category: string; meta?: { mainCount?: number; subCount?: number } }
 interface Opt { code: string; name: string; extra: number }
@@ -42,7 +43,7 @@ export function TakeoutForm() {
   const [error, setError] = useState('');
 
   const idem = useMemo(() => generateIdempotencyKeyClient(), []);
-  const dates = useMemo(() => nextDates(14), []);
+  const dates = useMemo(() => nextDates(14).filter((d) => !isBeyondBookingWindow(d.value)), []);
 
   useEffect(() => { fetch('/api/menu').then((r) => r.json()).then(setMenu).catch(() => setError('メニューの取得に失敗しました。')); }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps

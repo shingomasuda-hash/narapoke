@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { loadSettings, stayMinutesFor } from '@/lib/settings';
-import { generateStartSlots, isThursday, parseTimeToMinutes, jstInstant, isMorningAvailable, MORNING_END_MIN } from '@/lib/time';
+import { generateStartSlots, isThursday, parseTimeToMinutes, jstInstant, isMorningAvailable, MORNING_END_MIN, isBeyondBookingWindow } from '@/lib/time';
 import { canReserve, type Interval } from '@/lib/availability';
 import { useMockData } from '@/lib/config';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
 
   if (isThursday(date)) {
     return NextResponse.json({ date, closed: true, reason: 'THURSDAY', slots: [] });
+  }
+  if (isBeyondBookingWindow(date)) {
+    return NextResponse.json({ date, closed: true, reason: 'CLOSED', slots: [] });
   }
 
   const rawSlots = generateStartSlots({
